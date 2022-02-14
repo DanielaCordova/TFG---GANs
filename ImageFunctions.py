@@ -71,9 +71,11 @@ def tensor_as_image(img_tensor, tag = None, dir = None, num_images=25, size=(3,6
     image_unflat = img_tensor.detach().cpu()
     image_grid = make_grid(image_unflat[:num_images], nrow=nrow)
     plt.imshow(image_grid.permute(1,2,0).squeeze())
-    if show:
-        plt.show()
+    
     if save:
         os.chdir(dir)
         plt.savefig(datetime.now().strftime("%H-%M-%S-%f %d-%m-%y") + tag + '.png')
         os.chdir('..')
+    if show:
+        plt.show()
+    

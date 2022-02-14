@@ -26,11 +26,13 @@ def graph_GANS_losses(perdidasGenerador, perdidasDiscriminador, title, dir, save
     )
     plt.title(title)
     plt.legend()
-    plt.show()
+
     if save:
         os.chdir(dir)
         plt.savefig(datetime.now().strftime("%H-%M-%S-%f %d-%m-%y")+'.png')
         os.chdir('..')
+
+    plt.show()
 
 def train_styleGAN(gen, gen_opt, disc, disc_opt, dataloader, n_epochs, device, criterion, display_step, increase_alpha_step, alpha_step, dir, save = True):
 

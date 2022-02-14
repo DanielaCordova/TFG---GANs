@@ -7,6 +7,7 @@ import ImageFunctions
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import Training
+import os
 
 # Inicializar agentes
 
@@ -24,16 +25,17 @@ disc = disc.apply(GANUtils.weights_init)
 
 dataset, test = ImageFunctions.getDatasets('fruits-360_dataset/fruits-360')
 
-dl = DataLoader(dataset, batch_size=Constants.BATCH_SIZE, shuffle=True)
+dl = DataLoader(dataset, batch_size=5, shuffle=True)
 
 # Parametros de training
 
 device = Constants.DEVICE
 criterion = nn.BCEWithLogitsLoss()
-display_step = 10
+display_step = 500
 increase_alpha_step = 100
-n_epochs = Constants.N_EPOCHS
+n_epochs = 1
 
+os.mkdir('prueba-uso')
 
 Training.train_styleGAN(gen, gen_opt, disc, disc_opt, dl, n_epochs, device, criterion
 , display_step, increase_alpha_step, 0.2, 'prueba-uso', save=True)
