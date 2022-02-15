@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.functional as F
+import math
 
 class Discriminador(nn.Module):
 
@@ -225,3 +226,40 @@ class DiscriminadorStyleListo(nn.Module):
         bigger_image: the bigger image to downsample 
     '''
     return F.interpolate(bigger_image, size=smaller_image.shape[-2:], mode='bilinear')
+
+
+## Discriminador con mejoras aprendidas del libro
+
+class DiscriminadorLibro(nn.Module):
+
+  def __init__(self, image_size, inChan, outChan, alfa):
+    super().__init__()
+    self.image_size = image_size
+    self.inChan = inChan
+    self.outChan = outChan
+    self.alfa = alfa
+    self.firstPadding = 32 - image_size[1]
+    self.padding = 1
+    self.stride = 2
+    self.kernel = 4
+    
+
+  
+class Bloque_Discriminador_Libro(nn.Module):
+
+  def __init__(self, size, target_size, inChan, alpha):
+    self.kernel = 4
+    nextPow2 = int(math.ceil(math.log(size, 2)))
+    chan = size[0]
+    width = size[1]
+    height = size[2]
+    self.padding = nextPow2 - width
+    self.stride = 2
+    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan, 
+                                    kernel_size = kernel, stride=self.stride, 
+                                    padding=self.padding)
+
+    self.poolingDS = nn.AvgPool2d(kernel_size=kernel, stride=self.stride, 
+                                    padding=self.padding)
+
+    self.dsTensorToImage = nn.Conv2d()
