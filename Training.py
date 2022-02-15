@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import os
 from datetime import datetime
 from tqdm.auto import tqdm
+import numpy as np
 
 def graph_GANS_losses(perdidasGenerador, perdidasDiscriminador, title, dir, save):
     step_bins = 20
@@ -72,8 +73,8 @@ def train_styleGAN(gen, gen_opt, disc, disc_opt, dataloader, n_epochs, device, c
             if i % increase_alpha_step == 0 and i > 0:
                 alpha = gen.alpha
                 if alpha < 1 :
-                    gen_alpha = alpha + alpha_step
-                    disc_alpha = alpha + alpha_step
+                    gen.alpha = alpha + alpha_step
+                    disc.alpha = alpha + alpha_step
 
             if i % display_step == 0 and i > 0 :
                 promedioGen = sum(perdidasGenerador[-display_step :]) / display_step
@@ -90,5 +91,42 @@ def train_styleGAN(gen, gen_opt, disc, disc_opt, dataloader, n_epochs, device, c
             
             i += 1
 
+def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, display_step, increase_alfa_step, alfa_step, dir, save = True, show = False):
+
+    perdidas = []
+    ejex = []
+
+    i = 0
+    for e in n_epochs:
+        for img, tag in tqdm(dataset):
+
+            disc_opt.zero_grad()
+
+            res = disc(img.to(device))
+
+            perdida = criterion(res, tag)
+
+            perdida.backward(retain_graph = True)
+
+            if i % display_step == 0 and i > 0 :
+
+                perdidas.append(sum(perdidas[-display_step :]) / display_step)
+                ejex.append(i)
+
+                plt.plot(np.array(ejex), np.array(perdidas), label = "Perdidas en iteracion {i}")
+                plt.legend()
+
+                if save :
+                    os.chdir(dir)
+                    plt.savefig(datetime.now().strftime("%H-%M-%S-%f %d-%m-%y")+' iter{i}.png')
+                    os.chdir('..')
+                if show :
+                    plt.show()
+
+            if i % increase_alfa_step == 0 and i > 0:
+
+                disc.setAlfa(disc.alfa + alfa_step)
+
+            i = i+1
 
 
