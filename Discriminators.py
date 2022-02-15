@@ -230,36 +230,99 @@ class DiscriminadorStyleListo(nn.Module):
 
 ## Discriminador con mejoras aprendidas del libro
 
-class DiscriminadorLibro(nn.Module):
+class Primer_Bloque_Disc_Libro(nn.Module):
 
-  def __init__(self, image_size, inChan, outChan, alfa):
-    super().__init__()
-    self.image_size = image_size
-    self.inChan = inChan
-    self.outChan = outChan
-    self.alfa = alfa
-    self.firstPadding = 32 - image_size[1]
-    self.padding = 1
-    self.stride = 2
+  def __init__(self, image_size, inChan, alfa):
     self.kernel = 4
-    
+    self.stride = 2
+    self.alfa = alfa
+    self.padding = math.pow(2, int(math.ceil(math.log(image_size[1],2)))) - image_size[0] + 1
+
+    self.stridedDSC = nn.Conv2d(inChan, 2*inChan, kernel_size=self.kernel, stride = self.stride, padding = self.padding)
+    self.poolingDS  = nn.AvgPool2d(kernel_size=self.kernel, stride=self.stride, padding = self.padding)
+    self.dsTensorToImg = nn.Conv2d(2*inChan, 3, kernel_size=self.kernel, stride=1)
+    self.act = nn.LeakyReLU(0.2, inplace=True)
+
+  def forward(self, img):
+    resSC = self.stridedDSConv(img)
+    resPDS = resSC  = self.stridedDSConv(img)
+    resPDS = self.poolingDS(img)
+    imgSC  = self.dsTensorToImage(resSC)
+
+    inter = self.alfa * resPDS + (1 - self.alfa) * imgSC
+
+    res = self.act(inter)
+
+    return res
+
+  def setAlfa(self, alfa):
+    self.alfa = alfa
+
+
+
 
   
 class Bloque_Discriminador_Libro(nn.Module):
 
-  def __init__(self, size, target_size, inChan, alpha):
+  def __init__(self, inChan, alpha):
+    super().__init__()
     self.kernel = 4
-    nextPow2 = int(math.ceil(math.log(size, 2)))
-    chan = size[0]
-    width = size[1]
-    height = size[2]
-    self.padding = nextPow2 - width
+    self.padding = 1
     self.stride = 2
-    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan, 
-                                    kernel_size = kernel, stride=self.stride, 
-                                    padding=self.padding)
+    self.alfa = alpha
 
-    self.poolingDS = nn.AvgPool2d(kernel_size=kernel, stride=self.stride, 
-                                    padding=self.padding)
+    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan, kernel_size = self.kernel, stride=self.stride, padding=self.padding)
+    self.poolingDS = nn.AvgPool2d(kernel_size = self.kernel, stride=self.stride, padding=self.padding)
+    self.dsTensorToImage = nn.Conv2d(2*inChan, 3, kernel_size=self.kernel, stride=1)
+    self.act = nn.LeakyReLU(0.2, inplace = True)
+    
 
-    self.dsTensorToImage = nn.Conv2d()
+  def forward(self, img):
+    resSC  = self.stridedDSConv(img)
+    resPDS = self.poolingDS(img)
+    imgSC  = self.dsTensorToImage(resSC)
+
+    inter = self.alfa * resPDS + (1 - self.alfa) * imgSC
+
+    res = self.act(inter)
+
+    return res
+
+  def setAlfa(self, alfa):
+    self.alfa = alfa 
+
+class DiscriminadorLibro(nn.Module):
+
+  def __init__(self, image_size, alfa):
+    super().__init__()
+    self.image_size = image_size
+    self.inChan = image_size[0]
+    self.alfa = alfa
+    
+    self.bloques = []
+    self.bloques.append(Primer_Bloque_Disc_Libro(image_size, 3, self.alpha))
+    
+    size = math.pow(2, int(math.ceil(math.log(image_size[1],2)))) / 2
+    inChan = 3
+    while size > 1 :
+      self.bloques.append(Bloque_Discriminador_Libro(2*inChan, self.alfa))
+      inChan = inChan * 2
+      size = size / 2
+
+    self.bloques.append(nn.Sequential( nn.Sigmoid() ))
+
+  def forward(self, img):
+    x = img
+    for i in range(len(self.bloques)):
+      x = self.bloques[i](x)
+    return x
+
+  def setAlfa(self, alfa):
+    self.alfa = alfa
+    for b in self.bloques:
+      b.setAlfa(alfa)
+
+
+
+
+
