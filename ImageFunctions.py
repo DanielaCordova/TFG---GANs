@@ -8,6 +8,7 @@ from torchvision.datasets import ImageFolder
 from PIL import Image
 import matplotlib.pyplot as plt
 from datetime import datetime
+from torch.utils.data import Dataset
 
 
 def mostrar_tensor_imagenes(image_tensor, num_images=16, size=(3, 64, 64), nrow=3):
@@ -32,12 +33,14 @@ def ver_imagen(img, dataset, label):
     print('Label: ', dataset.classes[label], "("+str(label)+")")
     plt.imshow(img.permute(1, 2, 0))
 
-def getDatasets(data_dir):
-    transform = transforms.Compose([
-    transforms.Resize(28),
+def getTransform():
+    return transforms.Compose([
+    transforms.Resize(64),
     transforms.ToTensor()
-    ##transforms.Normalize((0.5,), (0.5,)),
     ])
+
+def getDatasets(data_dir):
+    transform = getTransform()
 
     dataset = ImageFolder(data_dir + '/Training', transform=transform) ##El transform anterior oscurece las imagenes
     print('Tamaño del dataset de entrenamiento :', len(dataset))
@@ -79,3 +82,40 @@ def tensor_as_image(img_tensor, tag = None, dir = None, num_images=25, size=(3,6
     if show:
         plt.show()
     
+class DataSetCarpeta(Dataset):
+
+  def __init__(self, dir, t, tag):
+    super().__init__()
+    self.dir = dir
+    self.transform = t
+    self.imagenes = os.listdir(dir)
+    self.tag = tag
+
+  def __len__(self):
+    return len(self.imagenes)
+
+  def __getitem__(self, index):
+    img = os.path.join(self.dir, self.imagenes[index])
+    imagen = Image.open(img).convert("RGB")
+    tensor = self.transform(imagen)
+    return (tensor, self.tag)
+
+class DataSetMix(Dataset):
+
+    def __init__(self, dirs, sizeeach, t):
+        super().__init__()
+        self.dirs = dirs
+        self.transform = t
+        self.imagenes = []
+        self.sizeeach = sizeeach
+        for dir in self.dirs :
+            self.imagenes.append(os.listdir(dir)[0:sizeeach])
+
+    def __len__(self):
+        return len(self.imagenes)
+
+    def __getitem__(self, index):
+        img = os.path.join(self.dirs[index % self.sizeeach], self.imagen)
+        imagen = Image.open(img).convert("RGB")
+        tensor = self.transform(imagen)
+        return tensor

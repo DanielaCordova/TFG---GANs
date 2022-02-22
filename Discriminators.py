@@ -233,23 +233,23 @@ class DiscriminadorStyleListo(nn.Module):
 class Primer_Bloque_Disc_Libro(nn.Module):
 
   def __init__(self, image_size, inChan, alfa):
-    self.kernel = 4
-    self.stride = 2
+    super().__init__()
+    self.kernel = int(4)
+    self.stride = int(2)
     self.alfa = alfa
-    self.padding = math.pow(2, int(math.ceil(math.log(image_size[1],2)))) - image_size[0] + 1
-
-    self.stridedDSC = nn.Conv2d(inChan, 2*inChan, kernel_size=self.kernel, stride = self.stride, padding = self.padding)
-    self.poolingDS  = nn.AvgPool2d(kernel_size=self.kernel, stride=self.stride, padding = self.padding)
-    self.dsTensorToImg = nn.Conv2d(2*inChan, 3, kernel_size=self.kernel, stride=1)
+    self.padding = int( math.pow(2, int(math.ceil(math.log(image_size[1],2)))) - image_size[1] + 1 )
+    self.stridedDSC = nn.Conv2d(int(inChan), int(2*inChan), self.kernel, self.stride, self.padding)
+    self.poolingDS  = nn.AvgPool2d(int(self.kernel), int(self.stride), self.padding)
+    self.dsTensorToImg = nn.Conv2d(int(2*inChan), 3, 1, stride=1)
     self.act = nn.LeakyReLU(0.2, inplace=True)
 
   def forward(self, img):
-    resSC = self.stridedDSConv(img)
-    resPDS = resSC  = self.stridedDSConv(img)
+    
+    resSC = self.stridedDSC(img)
     resPDS = self.poolingDS(img)
-    imgSC  = self.dsTensorToImage(resSC)
+    imgSC  = self.dsTensorToImg(resSC)
 
-    inter = self.alfa * resPDS + (1 - self.alfa) * imgSC
+    inter = (1 - self.alfa) * resPDS + self.alfa * imgSC
 
     res = self.act(inter)
 
@@ -271,18 +271,21 @@ class Bloque_Discriminador_Libro(nn.Module):
     self.stride = 2
     self.alfa = alpha
 
-    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan, kernel_size = self.kernel, stride=self.stride, padding=self.padding)
-    self.poolingDS = nn.AvgPool2d(kernel_size = self.kernel, stride=self.stride, padding=self.padding)
-    self.dsTensorToImage = nn.Conv2d(2*inChan, 3, kernel_size=self.kernel, stride=1)
+    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan,  self.kernel, self.stride, self.padding)
+    self.poolingDS = nn.AvgPool2d(self.kernel, self.stride, self.padding)
+    self.dsTensorToImage = nn.Conv2d(2*inChan, 3, 1, stride=1)
     self.act = nn.LeakyReLU(0.2, inplace = True)
     
 
   def forward(self, img):
     resSC  = self.stridedDSConv(img)
+    # [ 2*img.chan , img.h /2 , img.w/2]
     resPDS = self.poolingDS(img)
+    # [ img.chan, img.h/2, img.w/2]
     imgSC  = self.dsTensorToImage(resSC)
+    # [ img.chan, img.h/2, img.w/2 ]
 
-    inter = self.alfa * resPDS + (1 - self.alfa) * imgSC
+    inter = (1 - self.alfa) * resPDS +  self.alfa * imgSC
 
     res = self.act(inter)
 
@@ -298,29 +301,38 @@ class DiscriminadorLibro(nn.Module):
     self.image_size = image_size
     self.inChan = image_size[0]
     self.alfa = alfa
-    
     self.bloques = []
-    self.bloques.append(Primer_Bloque_Disc_Libro(image_size, 3, self.alpha))
+    x = Primer_Bloque_Disc_Libro(image_size, 3, self.alfa)
+    self.bloques.append(x)
+    self.add_module('primer bloque',x)
     
     size = math.pow(2, int(math.ceil(math.log(image_size[1],2)))) / 2
     inChan = 3
-    while size > 1 :
-      self.bloques.append(Bloque_Discriminador_Libro(2*inChan, self.alfa))
-      inChan = inChan * 2
+    while size > 4 :
+      m = Bloque_Discriminador_Libro(inChan, self.alfa)
+      self.bloques.append(m)
+      self.add_module('{i}esimo bloque', m)
       size = size / 2
 
-    self.bloques.append(nn.Sequential( nn.Sigmoid() ))
+    sig = nn.Sequential(
+       nn.Conv2d(3,1,4),
+       nn.Sigmoid() )
+    self.bloques.append(sig)
+    self.add_module('sigmoide', sig)
 
   def forward(self, img):
     x = img
     for i in range(len(self.bloques)):
       x = self.bloques[i](x)
-    return x
+    return x.view((-1))
 
   def setAlfa(self, alfa):
     self.alfa = alfa
-    for b in self.bloques:
-      b.setAlfa(alfa)
+    for i in range(len(self.bloques)):
+      if i != len(self.bloques)-1 :
+        self.bloques[i].setAlfa(alfa)
+
+
 
 
 

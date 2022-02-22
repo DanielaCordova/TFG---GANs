@@ -95,37 +95,44 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
 
     perdidas = []
     ejex = []
+    perdidas_plot = []
 
     i = 0
-    for e in n_epochs:
+    for e in range(n_epochs):
         for img, tag in tqdm(dataset):
 
             disc_opt.zero_grad()
 
-            res = disc(img.to(device))
+            res = disc(img)
 
-            perdida = criterion(res, tag)
+            perdida = criterion(res, tag.double())
 
             perdida.backward(retain_graph = True)
 
+            perdidas.append(perdida.item())
+
             if i % display_step == 0 and i > 0 :
 
-                perdidas.append(sum(perdidas[-display_step :]) / display_step)
+                perdidas_plot.append(sum(perdidas[-display_step :]) / display_step)
                 ejex.append(i)
 
-                plt.plot(np.array(ejex), np.array(perdidas), label = "Perdidas en iteracion {i}")
+                plt.plot(np.array(ejex), np.array(perdidas_plot))
                 plt.legend()
 
                 if save :
                     os.chdir(dir)
-                    plt.savefig(datetime.now().strftime("%H-%M-%S-%f %d-%m-%y")+' iter{i}.png')
+                    plt.savefig(datetime.now().strftime("%H-%M-%S-%f %d-%m-%y")+' iter ' + str(i) + '.png')
                     os.chdir('..')
                 if show :
                     plt.show()
 
-            if i % increase_alfa_step == 0 and i > 0:
+                plt.clf()
+
+            if i % increase_alfa_step == 0 and i > 0 and disc.alfa < 1:
 
                 disc.setAlfa(disc.alfa + alfa_step)
+
+            disc_opt.step()
 
             i = i+1
 
