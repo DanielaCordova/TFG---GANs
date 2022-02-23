@@ -9,11 +9,20 @@ from torchvision.datasets import ImageFolder
 import torch.nn as nn
 import Training
 import os
-import shutil
+
+# Parametros de training
+
+device = Constants.DEVICE
+criterion = nn.BCEWithLogitsLoss()
+display_step = Constants.DISPLAY_STEP
+increase_alpha_step = 100
+n_epoch = 100000
 
 # Inicializar discriminador
 
-disc = Discriminators.DiscriminadorLibro((3,64,64), 0)
+disc = Discriminators.DiscriminadorLibro((3,64,64), 0, device)
+disc = disc.to(device='cuda')
+
 disc_opt = torch.optim.Adam(disc.parameters(), lr = Constants.LR)
 
 disc.apply(GANUtils.weights_init)
@@ -30,20 +39,14 @@ print(dsTotal.__len__())
 
 dl = DataLoader(dsTotal, batch_size=200, shuffle=True)
 
-# Parametros de training
+# Carpeta para guardar resultados
 
-device = Constants.DEVICE
-criterion = nn.BCEWithLogitsLoss()
-display_step = Constants.DISPLAY_STEP
-increase_alpha_step = 100000000
-n_epoch = 10000
+os.mkdir('training-disc-libro-4')
 
-
-os.mkdir('training-disc-libro-3')
-
+# Entrenamiento
 
 Training.train_discriminator(disc,disc_opt, dl, n_epoch, device, criterion, 
-                                display_step, increase_alpha_step, 0, 'training-disc-libro-3')
+                                display_step, increase_alpha_step, 0.01, 'training-disc-libro-3')
 
 
 

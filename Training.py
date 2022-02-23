@@ -97,9 +97,19 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
     ejex = []
     perdidas_plot = []
 
+    print(next(disc.parameters()).is_cuda)
+
     i = 0
     for e in range(n_epochs):
         for img, tag in tqdm(dataset):
+
+            img = img.to(device)
+            tag = tag.to(device)
+
+            #print(img.is_cuda)
+            #print(tag.is_cuda)
+
+            #print(torch.cuda.current_device())
 
             disc_opt.zero_grad()
 
@@ -116,6 +126,8 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
                 perdidas_plot.append(sum(perdidas[-display_step :]) / display_step)
                 ejex.append(i)
 
+                print("Perdida del disc en el paso " + i + " = " + perdidas_plot[-1])
+
                 plt.plot(np.array(ejex), np.array(perdidas_plot))
                 plt.legend()
 
@@ -130,7 +142,7 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
 
             if i % increase_alfa_step == 0 and i > 0 and disc.alfa < 1:
 
-                disc.setAlfa(disc.alfa + alfa_step)
+                disc.increaseAlfa(alfa_step)
 
             disc_opt.step()
 

@@ -255,8 +255,13 @@ class Primer_Bloque_Disc_Libro(nn.Module):
 
     return res
 
-  def setAlfa(self, alfa):
-    self.alfa = alfa
+  def increaseAlfa(self, inc):
+    self.alfa = self.alfa + inc
+    if self.alfa > 1 :
+      self.alfa = 1
+  
+  def getAlfa(self):
+    return self.alfa
 
 
 
@@ -294,9 +299,12 @@ class Bloque_Discriminador_Libro(nn.Module):
   def setAlfa(self, alfa):
     self.alfa = alfa 
 
+  def getAlfa(self):
+    return self.alfa
+
 class DiscriminadorLibro(nn.Module):
 
-  def __init__(self, image_size, alfa):
+  def __init__(self, image_size, alfa, device):
     super().__init__()
     self.image_size = image_size
     self.inChan = image_size[0]
@@ -305,18 +313,19 @@ class DiscriminadorLibro(nn.Module):
     x = Primer_Bloque_Disc_Libro(image_size, 3, self.alfa)
     self.bloques.append(x)
     self.add_module('primer bloque',x)
+    self.bloque_act = 0
     
     size = math.pow(2, int(math.ceil(math.log(image_size[1],2)))) / 2
     inChan = 3
     while size > 4 :
-      m = Bloque_Discriminador_Libro(inChan, self.alfa)
+      m = Bloque_Discriminador_Libro(inChan, self.alfa).to(device)
       self.bloques.append(m)
       self.add_module('{i}esimo bloque', m)
       size = size / 2
 
     sig = nn.Sequential(
        nn.Conv2d(3,1,4),
-       nn.Sigmoid() )
+       nn.Sigmoid() ).to(device)
     self.bloques.append(sig)
     self.add_module('sigmoide', sig)
 
@@ -326,11 +335,11 @@ class DiscriminadorLibro(nn.Module):
       x = self.bloques[i](x)
     return x.view((-1))
 
-  def setAlfa(self, alfa):
-    self.alfa = alfa
-    for i in range(len(self.bloques)):
-      if i != len(self.bloques)-1 :
-        self.bloques[i].setAlfa(alfa)
+  def increaseAlfa(self, inc):
+    if self.bloques[self.bloque_act].getAlfa() < 1 and self.bloque_act <= len(self.bloques) - 1:
+      self.bloques[self.bloque_act].increaseAlfa(inc)
+      if self.bloques[self.bloque_act].getAlfa() == 1 :
+        self.bloque_act = self.bloque_act + 1
 
 
 
