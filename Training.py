@@ -126,7 +126,7 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
                 perdidas_plot.append(sum(perdidas[-display_step :]) / display_step)
                 ejex.append(i)
 
-                print("Perdida del disc en el paso " + i + " = " + perdidas_plot[-1])
+                print("Perdida del disc en el paso " + str(i) + " = " + str(perdidas_plot[-1]))
 
                 plt.plot(np.array(ejex), np.array(perdidas_plot))
                 plt.legend()
