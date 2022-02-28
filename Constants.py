@@ -11,7 +11,7 @@ DATA_DIR = os.path.sep + 'Training'
 DEVICE = torch.device('cuda')
 DIMIMG = (3,64,64)
 N_EPOCHS = 200
-DISPLAY_STEP = 200
+DISPLAY_STEP = 400
 BATCH_SIZE = 128
 INITIAL_ALPHA = 0.1
 

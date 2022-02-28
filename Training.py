@@ -91,7 +91,7 @@ def train_styleGAN(gen, gen_opt, disc, disc_opt, dataloader, n_epochs, device, c
             
             i += 1
 
-def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, display_step, increase_alfa_step, alfa_step, dir, save = True, show = False):
+def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, display_step, increase_alfa_step, alfa_step, dir, save = True, show = False, prog = True):
 
     perdidas = []
     ejex = []
@@ -129,6 +129,7 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
                 print("Perdida del disc en el paso " + str(i) + " = " + str(perdidas_plot[-1]))
 
                 plt.plot(np.array(ejex), np.array(perdidas_plot))
+                #a plt.title("Bloque " + str(disc.bloque_act) + " con alfa " + str(disc.bloques[disc.bloque_act].getAlfa()))
                 plt.legend()
 
                 if save :
@@ -140,9 +141,10 @@ def train_discriminator(disc, disc_opt, dataset, n_epochs, device, criterion, di
 
                 plt.clf()
 
-            if i % increase_alfa_step == 0 and i > 0 and disc.alfa < 1:
+            if prog:
+                if i % increase_alfa_step == 0 and i > 0 and disc.alfa < 1 :
 
-                disc.increaseAlfa(alfa_step)
+                    disc.increaseAlfa(alfa_step)
 
             disc_opt.step()
 

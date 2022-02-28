@@ -279,6 +279,7 @@ class Bloque_Discriminador_Libro(nn.Module):
     self.stridedDSConv = nn.Conv2d(inChan, 2*inChan,  self.kernel, self.stride, self.padding)
     self.poolingDS = nn.AvgPool2d(self.kernel, self.stride, self.padding)
     self.dsTensorToImage = nn.Conv2d(2*inChan, 3, 1, stride=1)
+    self.batchNorm = nn.BatchNorm2d(3)
     self.act = nn.LeakyReLU(0.2, inplace = True)
     
 
@@ -292,12 +293,16 @@ class Bloque_Discriminador_Libro(nn.Module):
 
     inter = (1 - self.alfa) * resPDS +  self.alfa * imgSC
 
+    inter = self.batchNorm(inter)
+
     res = self.act(inter)
 
     return res
 
-  def setAlfa(self, alfa):
-    self.alfa = alfa 
+  def increaseAlfa(self, alfa):
+    self.alfa = self.alfa + alfa
+    if self.alfa > 1:
+      self.alfa = 1
 
   def getAlfa(self):
     return self.alfa
@@ -324,8 +329,7 @@ class DiscriminadorLibro(nn.Module):
       size = size / 2
 
     sig = nn.Sequential(
-       nn.Conv2d(3,1,4),
-       nn.Sigmoid() ).to(device)
+       nn.Conv2d(3,1,4))
     self.bloques.append(sig)
     self.add_module('sigmoide', sig)
 
@@ -338,8 +342,49 @@ class DiscriminadorLibro(nn.Module):
   def increaseAlfa(self, inc):
     if self.bloques[self.bloque_act].getAlfa() < 1 and self.bloque_act <= len(self.bloques) - 1:
       self.bloques[self.bloque_act].increaseAlfa(inc)
+      print("El bloque " + str(self.bloque_act) + " tiene alfa = " + str(self.bloques[self.bloque_act].getAlfa()))
       if self.bloques[self.bloque_act].getAlfa() == 1 :
         self.bloque_act = self.bloque_act + 1
+
+class ConvDiscriminator(nn.Module):
+
+  def __init__(self, image_size, device):
+    super().__init__()
+    self.image_size = image_size
+    self.device = device
+    self.inChan = image_size[0]
+    size = image_size[1]
+    chan = self.inChan
+    bloques = []
+    size = size / 2
+    chan = 128
+    bloques.append(nn.Conv2d(self.inChan, chan, 4, 2, 1).to(device))
+    while size > 4:
+      bloques.append(nn.Conv2d(chan, 2*chan, 4, 2, 1).to(device))
+      bloques.append(nn.BatchNorm2d(2*chan))
+      bloques.append(nn.LeakyReLU(0.2).to(device))
+      chan = chan * 2
+      size = size / 2
+
+    bloques.append(nn.Conv2d(chan, 1, 4).to(device))
+    
+    self.disc = nn.ModuleList(bloques)
+
+  def forward(self, image):
+
+    for bloque in self.disc :
+      image = bloque(image)
+
+    return image.view((-1))
+
+  def getAlfa(self):
+    return 0
+  
+  def increaseAlfa(self, alfa):
+    alfa = alfa + 1
+
+
+    
 
 
 

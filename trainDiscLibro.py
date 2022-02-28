@@ -15,8 +15,8 @@ import os
 device = Constants.DEVICE
 criterion = nn.BCEWithLogitsLoss()
 display_step = Constants.DISPLAY_STEP
-increase_alpha_step = 100
-n_epoch = 100000
+increase_alpha_step = 75
+n_epoch = 10000
 
 # Inicializar discriminador
 
@@ -37,16 +37,16 @@ dsTotal = ConcatDataset([dsk, dsg])
 
 print(dsTotal.__len__())
 
-dl = DataLoader(dsTotal, batch_size=200, shuffle=True)
+dl = DataLoader(dsTotal, batch_size=300, shuffle=True)
 
 # Carpeta para guardar resultados
 
-os.mkdir('training-disc-libro-4')
+os.mkdir('training-discConv128-bn-sinSig')
 
 # Entrenamiento
 
 Training.train_discriminator(disc,disc_opt, dl, n_epoch, device, criterion, 
-                                display_step, increase_alpha_step, 0.01, 'training-disc-libro-3')
+                                display_step, increase_alpha_step, 0.001, 'training-discConv128-bn-sinSig', prog = False)
 
 
 
