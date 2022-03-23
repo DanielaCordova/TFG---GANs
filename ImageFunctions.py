@@ -22,6 +22,7 @@ def mostrar_tensor_imagenes(image_tensor, num_images=16, size=(3, 64, 64), nrow=
     plt.imshow(image_grid.permute(1, 2, 0).squeeze())
     plt.axis('off')
     plt.show()
+    plt.clf()
 
 def image_loader(image_name, device):
     image = Image.open(image_name)
@@ -69,7 +70,7 @@ def ver_tensor_img(img_tensor, num_images=25, size=(3, 64, 64), nrow=5, show=Tru
     if show:
         plt.show()
 
-def tensor_as_image(img_tensor, tag = None, dir = None, num_images=25, size=(3,64,64), nrow=5, save=True ,show=True):
+def tensor_as_image(img_tensor, iter, tag = None, dir = None, num_images=25, size=(3,64,64), nrow=5, save=True ,show=True):
     img_tensor = (img_tensor + 1) / 2
     image_unflat = img_tensor.detach().cpu()
     image_grid = make_grid(image_unflat[:num_images], nrow=nrow)
@@ -81,6 +82,8 @@ def tensor_as_image(img_tensor, tag = None, dir = None, num_images=25, size=(3,6
         os.chdir('..')
     if show:
         plt.show()
+
+    plt.clf()
     
 class DataSetCarpeta(Dataset):
 

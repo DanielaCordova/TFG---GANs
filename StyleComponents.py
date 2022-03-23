@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from scipy.stats import truncnorm
 
-def get_ruido_truncado(n_samples, z_dim, truncation):
+def  get_ruido_truncado(n_samples, z_dim, truncation):
     '''
     Function para crear vectores de ruido truncado
     Dado las dimensiones(n_samples, z_dim) y un valor de truncacción, crea el tensor de ese tamaño
@@ -13,6 +13,10 @@ def get_ruido_truncado(n_samples, z_dim, truncation):
         truncation(escalar no negativo): el valor de truncacion
     '''
     truncated_noise = truncnorm.rvs(-1*truncation, truncation, size=(n_samples, z_dim))
+    return torch.Tensor(truncated_noise)
+
+def get_ruido_truncado_cuadrado(n_samples, z_dim, truncation):
+    truncated_noise = truncnorm.rvs(-1*truncation, truncation, size=(n_samples, 512, z_dim, z_dim))
     return torch.Tensor(truncated_noise)
 
 class CapasMapeadoras(nn.Module):

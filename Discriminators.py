@@ -237,7 +237,8 @@ class Primer_Bloque_Disc_Libro(nn.Module):
     self.kernel = int(4)
     self.stride = int(2)
     self.alfa = alfa
-    self.padding = int( math.pow(2, int(math.ceil(math.log(image_size[1],2)))) - image_size[1] + 1 )
+    self.padding = int( math.pow(2, int(math.ceil(math.log(image_size[1],2)))) - image_size[1] + 1)
+    print("El padding del primer bloque es " + str(self.padding))
     self.stridedDSC = nn.Conv2d(int(inChan), int(2*inChan), self.kernel, self.stride, self.padding)
     self.poolingDS  = nn.AvgPool2d(int(self.kernel), int(self.stride), self.padding)
     self.dsTensorToImg = nn.Conv2d(int(2*inChan), 3, 1, stride=1)
@@ -269,18 +270,18 @@ class Primer_Bloque_Disc_Libro(nn.Module):
   
 class Bloque_Discriminador_Libro(nn.Module):
 
-  def __init__(self, inChan, alpha):
+  def __init__(self, inChan, alpha, device):
     super().__init__()
     self.kernel = 4
     self.padding = 1
     self.stride = 2
     self.alfa = alpha
 
-    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan,  self.kernel, self.stride, self.padding)
-    self.poolingDS = nn.AvgPool2d(self.kernel, self.stride, self.padding)
-    self.dsTensorToImage = nn.Conv2d(2*inChan, 3, 1, stride=1)
-    self.batchNorm = nn.BatchNorm2d(3)
-    self.act = nn.LeakyReLU(0.2, inplace = True)
+    self.stridedDSConv = nn.Conv2d(inChan, 2*inChan,  self.kernel, self.stride, self.padding).to(device)
+    self.poolingDS = nn.AvgPool2d(self.kernel, self.stride, self.padding).to(device)
+    self.dsTensorToImage = nn.Conv2d(2*inChan, 3, 1, stride=1).to(device)
+    self.batchNorm = nn.BatchNorm2d(3).to(device)
+    self.act = nn.LeakyReLU(0.2, inplace = True).to(device)
     
 
   def forward(self, img):
@@ -315,36 +316,39 @@ class DiscriminadorLibro(nn.Module):
     self.inChan = image_size[0]
     self.alfa = alfa
     self.bloques = []
-    x = Primer_Bloque_Disc_Libro(image_size, 3, self.alfa)
+    x = Primer_Bloque_Disc_Libro(image_size, 3, self.alfa).to(device)
     self.bloques.append(x)
     self.add_module('primer bloque',x)
     self.bloque_act = 0
     
     size = math.pow(2, int(math.ceil(math.log(image_size[1],2)))) / 2
     inChan = 3
+    bloques = 1
     while size > 4 :
-      m = Bloque_Discriminador_Libro(inChan, self.alfa).to(device)
+      m = Bloque_Discriminador_Libro(inChan, self.alfa, device).to(device)
       self.bloques.append(m)
       self.add_module('{i}esimo bloque', m)
       size = size / 2
+      bloques = bloques + 1
 
-    sig = nn.Sequential(
-       nn.Conv2d(3,1,4))
-    self.bloques.append(sig)
-    self.add_module('sigmoide', sig)
+    print("El discriminador tiene " + str(bloques) + " bloques ")  
+    self.end = nn.Conv2d(3,1,4).to(device)
+    
 
   def forward(self, img):
     x = img
     for i in range(len(self.bloques)):
       x = self.bloques[i](x)
+    x = self.end(x)
     return x.view((-1))
 
   def increaseAlfa(self, inc):
-    if self.bloques[self.bloque_act].getAlfa() < 1 and self.bloque_act <= len(self.bloques) - 1:
-      self.bloques[self.bloque_act].increaseAlfa(inc)
-      print("El bloque " + str(self.bloque_act) + " tiene alfa = " + str(self.bloques[self.bloque_act].getAlfa()))
-      if self.bloques[self.bloque_act].getAlfa() == 1 :
-        self.bloque_act = self.bloque_act + 1
+    if self.bloque_act < len(self.bloques):
+      if self.bloques[self.bloque_act].getAlfa() < 1 :
+        self.bloques[self.bloque_act].increaseAlfa(inc)
+        #print("El bloque " + str(self.bloque_act) + " tiene alfa = " + str(self.bloques[self.bloque_act].getAlfa()))
+        if self.bloques[self.bloque_act].getAlfa() >= 1 :
+          self.bloque_act = self.bloque_act + 1
 
 class ConvDiscriminator(nn.Module):
 
@@ -361,7 +365,7 @@ class ConvDiscriminator(nn.Module):
     bloques.append(nn.Conv2d(self.inChan, chan, 4, 2, 1).to(device))
     while size > 4:
       bloques.append(nn.Conv2d(chan, 2*chan, 4, 2, 1).to(device))
-      bloques.append(nn.BatchNorm2d(2*chan))
+      bloques.append(nn.BatchNorm2d(2*chan).to(device))
       bloques.append(nn.LeakyReLU(0.2).to(device))
       chan = chan * 2
       size = size / 2

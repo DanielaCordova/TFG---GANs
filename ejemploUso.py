@@ -1,4 +1,4 @@
-import StyleGenerator
+import Generators
 import Constants
 import Discriminators
 import torch
@@ -11,7 +11,7 @@ import os
 
 # Inicializar agentes
 
-gen = StyleGenerator.MicroStyleGANGenerator(Constants.Z_DIM, map_hidden_dim = 1024, w_dim = 496, in_chan = 512, out_chan = Constants.NUM_CHANNELS, kernel_size = 3, hidden_chan = 3).to(Constants.DEVICE)
+gen = Generators.MicroStyleGANGenerator(Constants.Z_DIM, map_hidden_dim = 1024, w_dim = 496, in_chan = 512, out_chan = Constants.NUM_CHANNELS, kernel_size = 3, hidden_chan = 3).to(Constants.DEVICE)
 disc = Discriminators.Discriminador(3,64).to(Constants.DEVICE)
 
 gen_opt = torch.optim.Adam(gen.parameters(), lr = Constants.LR)
