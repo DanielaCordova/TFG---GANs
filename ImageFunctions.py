@@ -78,7 +78,7 @@ def tensor_as_image(img_tensor, iter, tag = None, dir = None, num_images=25, siz
     
     if save:
         os.chdir(dir)
-        plt.savefig(datetime.now().strftime("%H-%M-%S-%f %d-%m-%y") + tag + '.png')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(iter) + tag + '.svg')
         os.chdir('..')
     if show:
         plt.show()

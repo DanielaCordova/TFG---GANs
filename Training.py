@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 from tqdm.auto import tqdm
 import numpy as np
+import torch
 
 def graph_GANS_losses(x, ejeX, title, dir, save, show):
 
@@ -461,4 +462,228 @@ increase_alpha_step, alfa_step, dir, save = True, show = False):
                 
             
             i += 1
+
+class Style_Trainer:
+    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, alfa_step, increase_alfa_step):
+        
+        self.disc = discriminator
+        self.gen  = generator
+        self.criterion = criterion
+
+        self.dataloader = dataloader
+
+        self.resdir = dir
+        self.log_step = log_step
+
+        self.iter = 0
+
+        self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=Constants.LR)
+        self.disc_opt = torch.optim.Adam(self.disc.parameters(), lr=Constants.LR)
+
+        self.verb = verb
+        self.gen_loss = []
+        self.gen_loss_plot = []
+        self.disc_loss = []
+        self.disc_loss_plot = []
+        if self.verb :
+            self.disc_fake_loss = []
+            self.disc_fake_loss_plot = []
+            self.disc_real_loss = []
+            self.disc_real_loss_plot = []
+        self.ejeX = []
+
+        if prog :
+            self.alfa_step = alfa_step
+            self.increase_alfa_step = increase_alfa_step
+            self.prog = prog
+        else:
+            self.prog = False
+            self.alfa_step = 0
+            self.increase_alfa_step = 0
+
+
+    def enable_training(self, model, flag):
+        for p in model.parameters():
+            p.requires_grad = flag
+
+    def train_gen(self):
+
+        self.enable_training(self.gen, True)
+        self.enable_training(self.disc,False)
+
+        noise = torch.randn(Constants.EJEMPLOSTEST, self.gen.getNoiseDim())
+
+        fake = self.gen(noise)
+        fake_pred = self.disc(fake)
+
+        loss = self.criterion(fake_pred, torch.zeros_like(fake_pred))
+
+        self.gen_opt.zero_grad()
+        loss.backward(retain_graph = True)
+        self.gen_opt.step()
+
+        return (loss.item(), fake)
+
+
+    def train_disc(self, real_data):
+        
+        self.enable_training(self.gen, False)
+        self.enable_training(self.disc,True)
+
+        noise = torch.randn(Constants.EJEMPLOSTEST, self.gen.getNoiseDim())
+
+        fake = self.gen(noise)
+        fake_pred = self.disc(fake)
+
+        real_pred = self.disc(real_data)
+
+        perdidasFalsas = self.criterion(fake_pred, torch.zeros_like(fake_pred))
+        perdidasReales = self.criterion(real_pred, torch.ones_like(real_pred))
+        perdidasTotales = (perdidasFalsas + perdidasReales) / 2
+
+        self.disc_opt.zero_grad()
+        perdidasTotales.backward()
+        self.disc_opt.step()
+
+        return (perdidasTotales.item(), perdidasFalsas.item(), perdidasReales.item())
+
+    def epoch(self):
+
+        for real in tqdm(self.dataloader):
+
+            g_loss, generated = self.train_gen()
+            t_loss, f_loss, r_loss = self.train_disc(real)
+
+            self.gen_loss.append(g_loss)
+            self.disc_loss.append(t_loss)
+
+            if self.verb:
+                self.disc_fake_loss.append(f_loss)
+                self.disc_real_loss.append(r_loss)
+
+            if self.iter % self.log_step == 0 and self.iter > 0 :
+                self.plot_losses()
+                self.save_results(real, generated)
+                
+            
+            if self.prog and self.iter % self.increase_alfa_step and self.iter > 0 :
+                self.gen.increaseAlfa(self.alfa_step)
+                self.disc.increaseAlfa(self.alfa_step)
+            
+            self.ejeX.append(self.iter)
+
+            self.iter = self.iter + 1
+    
+    def gen_epoch(self):
+
+        for _ in range(self.dataloader.__len__()):
+            g_loss = self.train_gen()
+            
+            self.gen_loss.append(g_loss)
+
+            if self.iter % self.log_step == 0 and self.iter > 0:
+                self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step: ])/self.log_step)
+                
+                os.chdir(self.resdir)
+                
+                plt.plot(np.array(self.ejeX), np.array(self.gen_loss_plot), label = "Gen Loss")
+                plt.title("Gen Loss: " + str(self.gen_loss_plot[-1]))
+                plt.legend()
+                plt.savefig("Gen " + datetime.now().strftime("%d-%m") + " iter " + str(self.iter) + '.svg')
+                plt.clf()
+
+                os.chdir('..')
+                
+            if self.prog and self.iter % self.increase_alfa_step == 0 and self.iter > 0:
+                self.gen.increaseAlfa(self.alfa_step)
+
+            self.iter = self.iter + 1
+
+    def disc_epoch(self):
+
+        for real in tqdm(self.dataloader):
+            d_loss, f_loss, r_loss = self.train_disc(real)
+
+            self.disc_loss.append(d_loss)
+            
+            if self.verb :
+                self.disc_fake_loss.append(f_loss)
+                self.disc_real_loss.append(r_loss)
+            
+            if self.prog and self.iter % self.increase_alfa_step == 0 and self.iter > 0:
+                self.disc.increaseAlfa(self.alfa_step)
+
+            if self.iter % self.log_step == 0 and self.iter > 0:
+                self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step: ])/self.log_step)
+
+                if self.verb :
+                    self.disc_fake_loss_plot.append(sum(self.disc_fake_loss[-self.log_step:])/self.log_step)
+                    self.disc_real_loss_plot.append(sum(self.disc_real_loss[-self.log_step:])/self.log_step)
+                
+                os.chdir(self.resdir)
+
+                plt.plot(np.array(self.ejeX), np.array(self.disc_loss_plot), label = "Disc avg loss")
+                if self.verb:
+                    plt.plot(np.array(self.ejeX), np.array(self.disc_fake_loss_plot), label = "Disc fake loss")
+                    plt.plot(np.array(self.ejeX), np.array(self.disc_real_loss_plot), label = "Disc real loss")
+                
+                plt.legend()
+                plt.savefig("Disc " + datetime.now().strftime("%d-%m") + " iter " + str(self.iter) + ".svg")
+                plt.clf()
+
+                os.chdir("..")
+
+            self.iter = self.iter + 1
+
+    def train_for_epochs(self, n_epochs):
+
+        for _ in range(n_epochs):
+            self.epoch()
+
+    def train_generator_for_epochs(self, n_epochs):
+
+        for _ in range(n_epochs):
+            self.gen_epoch()
+
+    def train_discriminator_for_epochs(self, n_epochs):
+        for _ in range(n_epochs):
+            self.disc_epoch()
+
+
+    def plot_losses(self):
+
+        self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step:])/self.log_step)
+        self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
+
+        if self.verb :
+            self.disc_fake_loss_plot.append(sum(self.disc_fake_loss[-self.log_step:])/self.log_step)
+            self.disc_real_loss_plot.append(sum(self.disc_real_loss[-self.log_step:])/self.log_step)
+
+        title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
+        print(title)
+        
+        arEjeX = np.array(self.ejeX)
+        plt.plot(arEjeX, np.array(self.gen_loss_plot), label = "Gen Loss")
+        plt.plot(arEjeX, np.array(self.disc_loss_plot), label = "Disc Loss")
+
+        if self.verb :
+            plt.plot(arEjeX, np.array(self.disc_fake_loss_plot), label = "Disc Fake Loss")
+            plt.plot(arEjeX, np.array(self.disc_real_loss_plot), label = "Disc Real Loss")
+
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.resdir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        os.chdir('..')
+
+        plt.clf()
+
+    def save_results(self, real, generated):
+        ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.resdir, save = True, show = False)
+        ImageFunctions.tensor_as_image(real, self.iter, "real", self.resdir, save = True, show = False)            
+
+
+        
+
 
