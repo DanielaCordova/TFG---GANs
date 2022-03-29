@@ -1,3 +1,4 @@
+from matplotlib import style
 import torch
 import torch.nn as nn
 from scipy.stats import truncnorm
@@ -28,16 +29,16 @@ class CapasMapeadoras(nn.Module):
         w_dim: the dimension of the intermediate noise vector, a scalar
     '''
  
-    def __init__(self, z_dim, hidden_dim, w_dim):
+    def __init__(self, z_dim, hidden_dim, w_dim, layers):
         super().__init__()
-        self.mapping = nn.Sequential(
-            nn.Linear(z_dim,hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim,hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, w_dim)
+        lay = []
+        lay.append(nn.Linear(z_dim, hidden_dim))
+        for _ in range(layers-1):
+            lay.append(nn.Linear(hidden_dim, hidden_dim))
+            lay.append(nn.ReLU())
+        lay.append(nn.Linear(hidden_dim, w_dim))
 
-        )
+        self.mapping = nn.Sequential(*lay)
 
     def forward(self, noise):
         '''
@@ -118,8 +119,13 @@ class AdaIN(nn.Module):
         style_shift = self.style_shift_transform(w)[:, :, None, None]
         
         # Calculate the transformed image
-
+        # print("Style = " + str(w.shape))
+        # print("image = " + str(image.shape))
         transformed_image = style_scale * normalized_image + style_shift
+        # print("Style scale = " + str(style_scale.shape))
+        # print("Style shift = " + str(style_shift.shape))
+        # print("Transformed img = " + str(transformed_image.shape))
+
 
         return transformed_image
     
@@ -132,5 +138,4 @@ class AdaIN(nn.Module):
         return self.style_shift_transform
     
 
-    def get_self(self):
-        return self 
+

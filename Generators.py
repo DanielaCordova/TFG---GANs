@@ -301,4 +301,87 @@ class GeneratorSimple(nn.Module):
         return self.gen(noise)
 
 
+class StyleNoProgGenerator(nn.Module):
+    def __init__(self, inChan, outChan, inputDim, layers, imageDim, styleDim, device):
+        super().__init__()
+
+        self.inChan = inChan
+        self.styleDim = styleDim
+        self.imageDim = imageDim
+        self.inputDim = inputDim
+        self.outChan = outChan
+        self.device = device
+
+        self.gen = []
+        self.end = []
+
+        chan = inChan
+        assert(inputDim[1] == inputDim[2])
+        size = inputDim[1]
+
+        self.mappinglayers = CapasMapeadoras(self.imageDim[0] * self.imageDim[1] * self.imageDim[2], 50, styleDim, layers).to(device)
+
+        while size < 64:
+            #conv, random noise, adain
+            self.gen.append(self.generate_gen_block(styleDim, chan, device))
+            chan = int(chan/2)
+            size = size * 2
+
+        while chan > 4:
+            self.end.append(nn.Conv2d(chan, int(chan/2), 1, 1).to(device))
+            self.end.append(nn.LeakyReLU(0.02, inplace = True).to(device))
+            chan = int(chan/2)
+        
+        if chan != outChan:
+            self.end.append(nn.Conv2d(chan, outChan, 1, 1).to(device))
+            self.end.append(nn.LeakyReLU(0.02))
+
+        
+
+    def forward(self, style):
+        x = torch.ones_like(torch.empty(1,self.inChan,4,4)).to(self.device)
+        style = self.mappinglayers(style)
+        for i in range(len(self.gen)):
+            x = self.gen[i](x, style)
+            # print("Bloque " + str(i) + " shape = " + str(x.shape))
+
+        if len(self.end) != 0:
+            for i in range(len(self.end)):
+                x = self.end[i](x)
+        
+        return x
+
+    def generate_gen_block(self, noiseDim, chan, device):
+        return StyleNoProgGeneratorBlock(noiseDim, chan, device)
+    
+    def getNoiseDim(self):
+        return self.imageDim[0] * self.imageDim[1] * self.imageDim[2]
+        
+
+
+
+class StyleNoProgGeneratorBlock(nn.Module):
+
+    def __init__(self, noiseDim, chan, device):
+        super().__init__()
+        self.c1 = nn.ConvTranspose2d(chan, int(chan/2), 2, 2).to(device)
+        self.i1 = InyecciondeRuido(int(chan/2)).to(device)
+        self.adain1 = AdaIN(int(chan/2), noiseDim).to(device)
+        self.c2 = nn.Conv2d(int(chan/2), int(chan/2), 1, 1).to(device)
+        self.i2 = InyecciondeRuido(int(chan/2)).to(device)
+        self.adain2 = AdaIN(int(chan/2), noiseDim).to(device)
+        self.act = nn.LeakyReLU(0,2).to(device)
+    
+    def forward(self, prev, noise): 
+
+        x = self.c1(prev)
+        x = self.i1(x)
+        x = self.adain1(x, noise)
+        x = self.c2(x)
+        x = self.i2(x)
+        x = self.adain2(x, noise)
+        x = self.act(x)
+
+        return x
+
 

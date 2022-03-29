@@ -464,11 +464,13 @@ increase_alpha_step, alfa_step, dir, save = True, show = False):
             i += 1
 
 class Style_Trainer:
-    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, alfa_step, increase_alfa_step):
+    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, alfa_step, increase_alfa_step, device):
         
         self.disc = discriminator
         self.gen  = generator
         self.criterion = criterion
+
+        self.device = device
 
         self.dataloader = dataloader
 
@@ -506,21 +508,31 @@ class Style_Trainer:
         for p in model.parameters():
             p.requires_grad = flag
 
+    def check_training_params(self, model, flag):
+        for p in model.parameters():
+            assert(p.requires_grad == flag)
+
     def train_gen(self):
 
         self.enable_training(self.gen, True)
         self.enable_training(self.disc,False)
 
-        noise = torch.randn(Constants.EJEMPLOSTEST, self.gen.getNoiseDim())
+        noise = torch.randn(1, self.gen.getNoiseDim()).to(self.device)
 
         fake = self.gen(noise)
         fake_pred = self.disc(fake)
 
         loss = self.criterion(fake_pred, torch.zeros_like(fake_pred))
 
+        self.check_training_params(self.gen, True)
+        self.check_training_params(self.disc, False)
+
         self.gen_opt.zero_grad()
         loss.backward(retain_graph = True)
         self.gen_opt.step()
+        
+        self.check_training_params(self.gen, True)
+        self.check_training_params(self.disc, False)
 
         return (loss.item(), fake)
 
@@ -577,13 +589,19 @@ class Style_Trainer:
     def gen_epoch(self):
 
         for _ in range(self.dataloader.__len__()):
-            g_loss = self.train_gen()
-            
+            g_loss, fake = self.train_gen()
+
             self.gen_loss.append(g_loss)
 
             if self.iter % self.log_step == 0 and self.iter > 0:
-                self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step: ])/self.log_step)
+
+                prom = sum(self.gen_loss[-self.log_step: ]) / self.log_step
+                self.gen_loss_plot.append( prom )
+
+                self.ejeX.append(self.iter)
                 
+                print("ITER " + str(self.iter) + " GENLOSS " + str(self.gen_loss_plot[-1]))
+
                 os.chdir(self.resdir)
                 
                 plt.plot(np.array(self.ejeX), np.array(self.gen_loss_plot), label = "Gen Loss")
@@ -641,7 +659,7 @@ class Style_Trainer:
             self.epoch()
 
     def train_generator_for_epochs(self, n_epochs):
-
+        print("Empieza el entrenamiento")
         for _ in range(n_epochs):
             self.gen_epoch()
 
