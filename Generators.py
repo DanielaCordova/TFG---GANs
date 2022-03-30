@@ -433,7 +433,7 @@ class PixelwiseNorm(nn.Module):
     def __init__(self):
         super(PixelwiseNorm, self).__init__()
     
-    def forward(x, alfa = 1e-8):
+    def forward(self, x, alfa = 1e-8):
         y = x.pow(2.0).mean(dim=1, keepdim=True).add(alfa).sqrt()
         y = x/y
         return y
