@@ -1,7 +1,9 @@
+from audioop import bias
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from StyleComponents import *
+import numpy as np
 
 
 class GeneradorCondicional(nn.Module):
@@ -383,5 +385,212 @@ class StyleNoProgGeneratorBlock(nn.Module):
         x = self.act(x)
 
         return x
+
+class EqualizedConv2d(nn.Conv2d):
+    def __init__(self, inChan, outChan, kernel, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros'):
+        super().__init__(inChan, outChan, kernel, stride, padding, dilation, groups, bias, padding_mode)
+        
+        torch.nn.init.normal_(self.weight)
+        if bias:
+            torch.nn.init.zeros_(self.bias)
+        
+        self.scale = np.sqrt(2) / (np.sqrt(np.prod(self.kernel_size) * self.in_channels) + 0.0000000000001)
+    
+    def forward(self, x):
+        return torch.conv2d(
+            input = x,
+            weight= self.weight * self.scale,
+            bias = self.bias,
+            stride = self.stride,
+            padding = self.padding,
+            dilation = self.dilation,
+            groups = self.groups
+        )
+
+class EqualizedConvTranspose2d(nn.ConvTranspose2d):
+    def __init__(self, inChan, outChan, kernel, stride=1, padding=0, output_padding=0, groups=1, bias=True, dilation=1, padding_mode="zeros"):
+        super().__init__(inChan, outChan, kernel, stride, padding, output_padding, groups, bias, dilation, padding_mode)
+        torch.nn.init.normal_(self.weight)
+        if bias:
+            torch.nn.init.zeros_(self.bias)
+        
+        self.scale = np.sqrt(2) / np.sqrt(np.prod(self.kernel_size) * self.in_channels) + 0.0000000000001
+
+    def forward(self, x, output_size):
+        output_padding = self._output_padding(input, output_size, self.stride, self.padding, self.kernel_size)
+        return torch.conv_transpose2d(
+            input = x,
+            weight= self.weight * self.scale,
+            bias = self.bias,
+            stride = self.stride,
+            pading = self.padding,
+            output_padding = output_padding,
+            groups = self.groups,
+            dilation = self.dilation
+        )
+
+class PixelwiseNorm(nn.Module):
+    def __init__(self):
+        super(PixelwiseNorm, self).__init__()
+    
+    def forward(x, alfa = 1e-8):
+        y = x.pow(2.0).mean(dim=1, keepdim=True).add(alfa).sqrt()
+        y = x/y
+        return y
+
+class EqualizedLinear(nn.Linear):
+    def __init__(self, in_f, out_f, bias = True):
+        super().__init__(in_f, out_f, bias)
+
+        torch.nn.init.normal_(self.weight)
+        if bias :
+            torch.nn.init.zeros_(self.bias)
+
+        fan_in = self.in_features
+        self.scale = np.sqrt(2) / np.sqrt(fan_in)
+    
+    def forward(self, x):
+        return torch.nn.functional.linear(x, self.weight * self.scale, self.bias)
+
+class EqualizedAdaIN(nn.Module):
+
+    def __init__(self, channels, w_dim):
+        super().__init__()
+
+        # Normalize the input per-dimension
+        self.instance_norm = PixelwiseNorm()
+
+        self.style_scale_transform = EqualizedLinear(w_dim, channels)
+        self.style_shift_transform = EqualizedLinear(w_dim, channels)
+
+    def forward(self, image, w):
+        '''
+        Function for completing a forward pass of AdaIN: Given an image and intermediate noise vector w, 
+        returns the normalized image that has been scaled and shifted by the style.
+        Parameters:
+            image: the feature map of shape (n_samples, channels, width, height)
+            w: the intermediate noise vector
+        '''
+        normalized_image = self.instance_norm(image)
+        style_scale = self.style_scale_transform(w)[:, :, None, None]
+        style_shift = self.style_shift_transform(w)[:, :, None, None]
+        
+        # Calculate the transformed image
+        # print("Style = " + str(w.shape))
+        # print("image = " + str(image.shape))
+        transformed_image = style_scale * normalized_image + style_shift
+        # print("Style scale = " + str(style_scale.shape))
+        # print("Style shift = " + str(style_shift.shape))
+        # print("Transformed img = " + str(transformed_image.shape))
+
+
+        return transformed_image
+    
+
+    def get_style_scale_transform(self):
+        return self.style_scale_transform
+    
+
+    def get_style_shift_transform(self):
+        return self.style_shift_transform
+    
+
+class EqualizedStyleGenBlock(nn.Module):
+    def __init__(self, inChan, outChan, wDim, kernel, padding, device = 'cuda'):
+        super().__init__()
+        self.inChan = inChan
+        self.outChan = outChan
+        self.wdim = wDim
+        self.kernel_size = kernel
+        self.padding = padding
+        self.device = device
+        self.alfa = 0
+
+        self.c1 = EqualizedConv2d(inChan, outChan, kernel, kernel, padding).to(device)
+        self.i1 = InyecciondeRuido(outChan).to(device)
+        self.a1 = EqualizedAdaIN(outChan, wDim).to(device)
+        self.c2 = EqualizedConv2d(outChan, outChan, 1, 1).to(device)
+        self.i2 = InyecciondeRuido(outChan).to(device)
+        self.a2 = EqualizedAdaIN(outChan, wDim).to(device)
+        self.act = nn.LeakyReLU(0,2).to(device)
+    
+        self.upsample = nn.Upsample(scale_factor=2 , mode = 'bilinear')
+
+    def forward(self, prev_tens, noise):
+
+        x = self.c1(prev_tens)
+        x = self.i1(x)
+        x = self.a1(x, noise)
+        x = self.c2(x)
+        x = self.i2(x)
+        x = self.a2(x, noise)
+        x = self.act(x)
+        
+        return x
+
+class EqualizedStyleGen(nn.Module):
+
+    def __init__(self, inChan, outChan, inputDim, layers, imageDim, styleDim, device):
+        #                512       3     (512,4,4)    8    (3,64,64)    64
+        super().__init__()
+        self.inChan = inChan
+        self.outChan = outChan
+        self.imageDim = imageDim
+        self.inputDim = inputDim
+        self.layers = layers
+        self.styleDim = styleDim
+        self.device = device
+
+        self.gen_blocks    = []
+        self.to_rgb_blocks = []
+        self.alfas         = []
+        self.end           = []
+        self.act_alfa      = 1
+
+        self.mappingLayers = CapasMapeadoras(self.imageDim[0] * self.imageDim[1] * self.imageDim[2], 64, self.styleDim, self.layers).to(device)
+
+        size = self.inputDim[1]
+        chan = self.inChan
+
+        while size < 64 :
+            self.gen_blocks.append(EqualizedStyleGenBlock(chan, int(chan/2), styleDim, 2, 2, self.device).to(device))
+            self.to_rgb_blocks.append(EqualizedConv2d(int(chan/2), 3, 1).to(device))
+            self.alfas.append(0)
+
+            chan = int(chan/2)
+            size = int(size/2)
+        
+        self.upsample = nn.Upsample(scale_factor=2 , mode = 'bilinear')
+
+    def forward(self, noise):
+        
+        style = self.mappingLayers(noise)
+        const_in = x = torch.ones_like(torch.empty(1,self.inChan,4,4)).to(self.device)
+
+        x_t = self.gen_blocks[0](const_in, style)
+        x_img = self.to_rgb_blocks[0](x_t)
+
+        for i in range(1, len(self.gen_blocks)):
+            x_t = self.gen_blocks[i](x_t, style)
+            x_u = self.upsample(x_img)
+            x_img = self.to_rgb_blocks[i](x_t)
+
+            x_img = (1-self.alfas[i]) * x_u + self.alfas[i] * x_img
+
+        return x_img
+    
+    def increaseAlfa(self, alfa):
+
+        if self.act_alfa < len(self.alfas):
+
+            if self.alfas[self.act_alfa] < 1:
+                self.alfas[self.act_alfa] = min(self.alfas[self.act_alfa] + alfa, 1)
+
+                if self.alfas[self.act_alfa] == 1:
+                    self.act_alfa = self.act_alfa + 1
+
+        
+
+
 
 

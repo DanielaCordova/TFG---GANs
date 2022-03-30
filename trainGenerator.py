@@ -14,7 +14,7 @@ import os
 # Modulos
 
 disc = Discriminators.DiscriminadorLibro((3,64,64), 0, 'cuda')
-gen = Generators.StyleNoProgGenerator(512, 3, (512,4,4), 8, (3,64,64), 64, 'cuda')
+gen = Generators.EqualizedStyleGen(512, 3, (512,4,4), 8, (3,64,64), 64, 'cuda')
 
 disc_opt = torch.optim.Adam(disc.parameters(), lr=Constants.LR)
 gen_opt = torch.optim.Adam(gen.parameters(), lr=Constants.LR)
@@ -30,7 +30,7 @@ dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
 # Carpeta para resultados
 
-training_dir = 'training-Gen-StyleNoPg'
+training_dir = 'training-EqualizedGen'
 
 os.mkdir(training_dir)
 
