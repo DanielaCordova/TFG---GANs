@@ -21,7 +21,6 @@ class GeneradorCondicional(nn.Module):
         )
 
     def forward(self, input):
-        print(input.shape)
         x = input.view(len(input), self.inDim, 1, 1)
         return self.gen(x)
 
@@ -103,9 +102,10 @@ class MicroStyleGANGenerator(nn.Module):
                  out_chan, 
                  kernel_size, 
                  hidden_chan,
+                 layers,
                  device):
         super().__init__()
-        self.map = CapasMapeadoras(z_dim, map_hidden_dim, w_dim).to(device)
+        self.map = CapasMapeadoras(z_dim, map_hidden_dim, w_dim, layers).to(device)
         # Typically this constant is initiated to all ones, but you will initiate to a
         # Gaussian to better visualize the network's effect
         self.starting_constant = nn.Parameter(torch.randn(1, in_chan, 4, 4))
@@ -204,9 +204,9 @@ class BloqueGenerador(nn.Module):
 
 class StyleGenerador(nn.Module):
 
-    def __init__(self, zDim, inChan, mappingLayersDim, disentNoiseDim, outChan, kernel, convHiddenChan, device):
+    def __init__(self, zDim, inChan, mappingLayersDim, disentNoiseDim, outChan, kernel, convHiddenChan, layers, device):
         super().__init__()
-        self.mapLayers = CapasMapeadoras(zDim, mappingLayersDim, disentNoiseDim).to(device)
+        self.mapLayers = CapasMapeadoras(zDim, mappingLayersDim, disentNoiseDim, layers).to(device)
         self.entradaPreset = torch.ones_like(torch.empty(1,inChan,4,4)).to(device)
         self.primerBloque =  BloqueGenerador(inChan, convHiddenChan, disentNoiseDim, kernel, 4, upsample=False).to(device)
 
