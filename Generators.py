@@ -7,6 +7,35 @@ import numpy as np
 
 
 class GeneradorCondicional(nn.Module):
+    def __init__(self, noiseDim, condDim, numChan=3, hiddenDim=64):
+        super(GeneradorCondicional, self).__init__()
+        self.inDim = noiseDim  
+        self.gen = nn.Sequential(
+            self.generar_bloque_generador(self.inDim, hiddenDim * 4),
+            self.generar_bloque_generador(hiddenDim * 4, hiddenDim * 2, kernTam=4, stride=1),
+            self.generar_bloque_generador(hiddenDim * 2, hiddenDim),
+            self.generar_bloque_generador(hiddenDim, numChan, kernTam=4, ultimaCapa=True),
+        )
+
+    def forward(self, input):
+        x = input.view(len(input), self.inDim, 1, 1)
+        return self.gen(x)
+
+    def generar_bloque_generador(self, inChan, outChan, kernTam=3, stride=2, ultimaCapa=False):
+        if ultimaCapa:
+            return nn.Sequential(
+                nn.ConvTranspose2d(inChan, outChan, kernTam, stride),
+                nn.Tanh(),
+            )
+        else:
+            return nn.Sequential(
+                nn.ConvTranspose2d(inChan, outChan, kernTam, stride),
+                nn.BatchNorm2d(outChan),
+                nn.ReLU(inplace=True),
+            )
+
+
+class GeneradorCondicionalStyle(nn.Module):
     def __init__(self, noiseDim, numChan=3, hiddenDim=64, device = 'cuda'):
         super().__init__()
         self.inDim = noiseDim  

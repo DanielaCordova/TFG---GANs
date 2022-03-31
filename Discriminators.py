@@ -1,11 +1,14 @@
 import torch.nn as nn
 import torch.functional as F
+import torch.nn.functional as nnF
 import math
 
-class Discriminador(nn.Module):
+
+
+class DiscriminadorCondicional(nn.Module):
 
   def __init__(self, inChan=1, hiddenDim=64):
-    super(Discriminador, self).__init__()
+    super(DiscriminadorCondicional, self).__init__()
     self.discriminador = nn.Sequential(
         self.generar_bloque_discriminador(inChan, hiddenDim),
         self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2),
@@ -26,7 +29,6 @@ class Discriminador(nn.Module):
 
   def forward(self, image):
     pred = self.discriminador(image)
-    print("Resultado normal antes de view " ,pred.shape)
     return pred.view(len(pred), -1)
 
 #############################################################
