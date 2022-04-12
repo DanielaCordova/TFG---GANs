@@ -1,0 +1,13 @@
+# Config file for CelebA dataset (200k)
+
+output_dir: '/data/hzh/checkpoints/StyleGAN.pytorch/ckp_celeba_6'
+structure: 'linear'
+device_id: ('3')
+checkpoint_factor: 3
+feedback_factor: 4
+dataset:
+  img_dir:  'C:\Users\Daniela\Documents\TFG\fruits-360_dataset\fruits-360\Training'
+  folder: True
+  resolution: 128
+sched:
+  epochs: [2,4,4,4,4,8]
