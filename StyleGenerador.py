@@ -111,7 +111,7 @@ class EqualizedLinearPropia(nn.Module):
         init_std = 1.0 / lrmul
         self.w_mul = he_std * lrmul
         self.weight = torch.nn.Parameter(torch.randn(output_size,
-                                                     input_size) * init_std)  ##Creamos un vector de pesos inicializados de manera random
+                                                     input_size) * init_std) ##Creamos un vector de pesos inicializados de manera random
         self.bias = torch.nn.Parameter(torch.zeros(output_size))  ##Lo mismo con el bias
         self.b_mul = lrmul
 
@@ -255,7 +255,7 @@ class GMapping(nn.Module):
             layers.append(PixelNormLayer())
 
         layers.append(EqualizedLinearPropia(self.latent_size, self.mapping_fmaps, gain=np.sqrt(2), lrmul=mapping_lrmul))
-        layers.append(nn.LeakyReLU(negative_slope=0.2))
+        layers.append(nn.LeakyReLU(negative_slope=0.2) )
 
         for layer in range(1, mapping_layers):  ##las otras 7 capas
             fmaps_in = self.mapping_fmaps
@@ -280,7 +280,7 @@ class InputBlock(nn.Module):  ##Primer bloque 4x4
         self.nf = nf
 
         self.const = nn.Parameter(torch.ones(1, nf, 4, 4))
-        self.bias = nn.Parameter(torch.ones(nf))
+        self.bias = nn.Parameter(torch.ones(nf) )
 
         self.epi1 = CapaS_StyleMode(nf, dlatent_size)
 
@@ -313,7 +313,7 @@ class GSynthesisBlock(nn.Module):
         self.capa1 = CapaS_StyleMode(out_channels, dlatent_size)
 
         ## Conv 3x3
-        self.conv1 = Conv2dPropia(out_channels, out_channels)
+        self.conv1 = Conv2dPropia(out_channels, out_channels) 
 
         self.capa2 = CapaS_StyleMode(out_channels, dlatent_size)
 
@@ -346,15 +346,15 @@ class GSynthesis(nn.Module):
 
         self.init_block = InputBlock(nf(1), dlatent_size) #4x4
         # create the ToRGB layers for various outputs (de articulo progressive growing)
-        rgb_converters = [Conv2dPropia(nf(1), num_channels, gain=1, kernel_size=1)]
+        rgb_converters = [Conv2dPropia(nf(1), num_channels, gain=1, kernel_size=1) ]
 
         # Building blocks for remaining layers.
         layers = []
         for res in range(3, resolution_log2 + 1):
             last_channels = nf(res - 2)
             channels = nf(res - 1)
-            layers.append(GSynthesisBlock(last_channels, channels, dlatent_size))
-            rgb_converters.append(Conv2dPropia(channels, num_channels, gain=1))
+            layers.append(GSynthesisBlock(last_channels, channels, dlatent_size) )
+            rgb_converters.append(Conv2dPropia(channels, num_channels, gain=1) )
 
         self.bloques = nn.ModuleList(layers)
         self.to_rgb = nn.ModuleList(
@@ -418,7 +418,7 @@ class Generator(nn.Module):
         self.num_layers = (int(np.log2(resolution)) - 1) * 2
         self.g_mapping = GMapping(latent_size, dlatent_size, dlatent_broadcast=self.num_layers,
                                   **kwargs)  ##Bloque para el mapeo
-        self.g_synthesis = GSynthesis(resolution=resolution, **kwargs)  ##  Bloque para la sintesis
+        self.g_synthesis = GSynthesis(resolution=resolution, **kwargs)   ##  Bloque para la sintesis
 
         if truncation_psi > 0:
             self.truncation = Truncation(avg_latent=torch.zeros(dlatent_size),  ##Truncar los valores extremos

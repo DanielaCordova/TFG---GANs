@@ -10,6 +10,7 @@ from datetime import datetime
 from tqdm.auto import tqdm
 import numpy as np
 import torch
+import torch.nn as nn
 
 def graph_GANS_losses(x, ejeX, title, dir, save, show):
 
@@ -29,8 +30,32 @@ def graph_GANS_losses(x, ejeX, title, dir, save, show):
 
     plt.clf()
 
+def saveCheckpoint(dir, gen, disc, gen_opt, disc_opt, gen_loss, disc_loss, epoch, iter):
+    os.chdir(dir)
+
+    g_s = 'gen_' + str(iter) + '.tar'
+    d_s = 'disc_' + str(iter) + '.tar'
+
+    torch.save({
+       'epoch' : epoch ,
+       'iter' : iter,
+       'model_state_dict' : gen.state_dict(), 
+       'optimizer_state_dict' : gen_opt.state_dict(),
+       'loss' : gen_loss
+    }, g_s)
+
+    torch.save({
+        'epoch' : epoch,
+        'iter' : iter,
+        'model_state_dict' : disc.state_dict(),
+        'optimizer_state_dict' : disc_opt.state_dict(),
+        'loss' : disc_loss
+    }, d_s)
+
+    os.chdir('..')
+
 def train_styleGAN(gen, pggen, gen_opt, disc, pgdisc, disc_opt, dataloader, n_epochs, device, criterion, display_step, 
-increase_alpha_step, alfa_step, dir, save = True, show = False):
+increase_alpha_step, alfa_step, dir, checkpoint_step, save = True, show = False):
 
     perdidasGenerador = []
     perdidasGeneradorPlot = []
@@ -114,7 +139,9 @@ increase_alpha_step, alfa_step, dir, save = True, show = False):
                 (perdidasDiscriminadorRealPlot, "perdida discriminador reales")]
 
                 graph_GANS_losses(ar_plot, ejeX, s, dir, save, show)
-                
+            
+            if i % checkpoint_step == 0 and i > 0:
+                saveCheckpoint(dir,gen,disc,gen_opt,disc_opt, perdidasGenerador[-1], perdidasDiscriminadorAvg[-1], epoch, i)
             
             i += 1
 
@@ -464,7 +491,8 @@ increase_alpha_step, alfa_step, dir, save = True, show = False):
             i += 1
 
 class Style_Trainer:
-    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, alfa_step, increase_alfa_step, device):
+    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, alfa_step, increase_alfa_step, device, 
+    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None):
         
         self.disc = discriminator
         self.gen  = generator
@@ -481,6 +509,7 @@ class Style_Trainer:
 
         self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=Constants.LR)
         self.disc_opt = torch.optim.Adam(self.disc.parameters(), lr=Constants.LR)
+        self.downsampler = nn.AvgPool2d(4,2,1)
 
         self.verb = verb
         self.gen_loss = []
@@ -493,6 +522,25 @@ class Style_Trainer:
             self.disc_real_loss = []
             self.disc_real_loss_plot = []
         self.ejeX = []
+
+        if load :
+            os.chdir(load_dir)
+
+            c_g = torch.load(gen_load)
+            c_d = torch.load(disc_load)
+
+            self.disc.load_state_dict(c_d['model_state_dict'])
+            self.disc_opt.load_state_dict(c_d['optimizer_state_dict'])
+            self.disc_loss.append( c_d['loss'] )
+
+            self.gen.load_state_dict(c_g['model_state_dict'])
+            self.gen_opt.load_state_dict(c_g['optimizer_state_dict'])
+            self.gen_loss.append( c_g['loss'] )
+
+            os.chdir('..')
+
+        if checksave:
+            self.save_step = save_step
 
         if prog :
             self.alfa_step = alfa_step
@@ -517,7 +565,7 @@ class Style_Trainer:
         self.enable_training(self.gen, True)
         self.enable_training(self.disc,False)
 
-        noise = torch.randn(1, self.gen.getNoiseDim()).to(self.device)
+        noise = torch.randn(Constants.BATCH_SIZE, 512).to(self.device)
 
         fake = self.gen(noise)
         fake_pred = self.disc(fake)
@@ -539,10 +587,16 @@ class Style_Trainer:
 
     def train_disc(self, real_data):
         
+        real_data = real_data.to(self.device)
+
+        in_size = self.disc.getinSize()
+        while real_data.shape[2] != in_size:
+            real_data = self.downsampler(real_data)
+
         self.enable_training(self.gen, False)
         self.enable_training(self.disc,True)
 
-        noise = torch.randn(Constants.EJEMPLOSTEST, self.gen.getNoiseDim())
+        noise = torch.randn(Constants.BATCH_SIZE, 512).to('cuda')
 
         fake = self.gen(noise)
         fake_pred = self.disc(fake)
@@ -573,6 +627,8 @@ class Style_Trainer:
                 self.disc_fake_loss.append(f_loss)
                 self.disc_real_loss.append(r_loss)
 
+            self.ejeX.append(self.iter)
+
             if self.iter % self.log_step == 0 and self.iter > 0 :
                 self.plot_losses()
                 self.save_results(real, generated)
@@ -582,9 +638,11 @@ class Style_Trainer:
                 self.gen.increaseAlfa(self.alfa_step)
                 self.disc.increaseAlfa(self.alfa_step)
             
-            self.ejeX.append(self.iter)
-
             self.iter = self.iter + 1
+
+            if self.iter % self.save_step == 0:
+                self.saveCheckpoint(self.resdir, self.gen, self.disc, self.gen_opt, self.disc_opt, self.gen_loss[-1], self.disc_loss[-1], 0, self.iter)
+
     
     def gen_epoch(self):
 
@@ -701,7 +759,29 @@ class Style_Trainer:
         ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.resdir, save = True, show = False)
         ImageFunctions.tensor_as_image(real, self.iter, "real", self.resdir, save = True, show = False)            
 
+    def saveCheckpoint(self, dir, gen, disc, gen_opt, disc_opt, gen_loss, disc_loss, epoch, iter):
+        os.chdir(dir)
 
+        g_s = 'gen_' + str(iter) + '.tar'
+        d_s = 'disc_' + str(iter) + '.tar'
+
+        torch.save({
+        'epoch' : epoch ,
+        'iter' : iter,
+        'model_state_dict' : gen.state_dict(), 
+        'optimizer_state_dict' : gen_opt.state_dict(),
+        'loss' : gen_loss
+        }, g_s)
+
+        torch.save({
+            'epoch' : epoch,
+            'iter' : iter,
+            'model_state_dict' : disc.state_dict(),
+            'optimizer_state_dict' : disc_opt.state_dict(),
+            'loss' : disc_loss
+        }, d_s)
+
+        os.chdir('..')
         
 
 

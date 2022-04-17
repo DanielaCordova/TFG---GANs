@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from StyleComponents import *
 import numpy as np
-
+import StyleGenerador as sg
 
 class GeneradorCondicional(nn.Module):
     def __init__(self, noiseDim, condDim, numChan=3, hiddenDim=64):
@@ -618,7 +618,45 @@ class EqualizedStyleGen(nn.Module):
                 if self.alfas[self.act_alfa] == 1:
                     self.act_alfa = self.act_alfa + 1
 
+
+class StyleNoCondGenerator(nn.Module):
+
+    def __init__(self, resolution, batch_size, alfa, device = 'cuda', latent_size=512, dlatent_size=512, conditional=False,
+                n_classes=0, truncation_psi=0.7, truncation_cutoff=8, dlatent_avg_beta=0.995,
+                style_mixing_prog=0.9, **kwargs):
         
+        super().__init__()
+        self.resolution = resolution
+        self.gen = sg.Generator(resolution, latent_size, dlatent_size, conditional, n_classes, truncation_psi, truncation_cutoff, dlatent_avg_beta, style_mixing_prog, **kwargs).to(device)
+        self.alfa = alfa
+        self.depth = 0
+        self.batch_size = batch_size
+        self.iter = 0
+
+        
+
+    def forward(self, noise): 
+        print("Input noise shape = " + str(noise.shape))
+        ret = self.gen(noise, self.depth, self.alfa)
+
+        self.iter += 1
+
+        assert(ret.shape[2] == ret.shape[3])
+
+        return ret
+
+    def increaseAlfa(self, alfa):
+
+        self.alfa = self.alfa + alfa
+        if self.alfa >= 1 :
+            self.alfa = 0
+            self.depth = self.depth + 1
+            if self.depth > self.gen.g_synthesis.num_layers:
+                self.depth = 0
+
+    def getNoiseDim(self):
+        return self.resolution
+    
 
 
 

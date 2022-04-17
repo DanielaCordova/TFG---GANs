@@ -31,205 +31,6 @@ class DiscriminadorCondicional(nn.Module):
     pred = self.discriminador(image)
     return pred.view(len(pred), -1)
 
-#############################################################
-
-class DiscriminadorStyle(nn.Module):
-
-  def __init__(self, inChan, outChan, kernel, hiddenDim, alpha):
-    super().__init__()
-    self.alpha = alpha
-    self.block64to32 = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block32to16 = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block16to8  = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block8to4   = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block32_to_image = nn.Conv2d(inChan,outChan, kernel_size = kernel, padding = 1)
-    self.block16_to_image = nn.Conv2d(inChan,outChan, kernel_size = kernel, padding = 1)
-    self.block8_to_image = nn.Conv2d(inChan,outChan, kernel_size = 2, padding = 1)
-    self.block4_to_image = nn.Conv2d(inChan,outChan, kernel_size = 1, padding = 1)
-    self.fq      = nn.Sequential(
-        self.generar_bloque_fq_discriminador(inChan, hiddenDim),
-        self.generar_bloque_fq_discriminador(hiddenDim, hiddenDim*2),
-        self.generar_bloque_fq_discriminador(hiddenDim*2, inChan),
-        nn.BatchNorm2d(outChan),
-        nn.LeakyReLU(0.2, inplace = True)
-    )
-
-  def forward(self, image):
-    x32 = self.block64to32(image)
-    img32 = self.block32_to_image(x32)
-    ds32  = self.downsample_to_match_size(image, img32)
-    interpolation32 = self.alpha * img32 + (1-self.alpha) * ds32
-
-    x16 = self.block32to16(interpolation32)
-    img16 = self.block16_to_image(x16)
-    ds16  = self.downsample_to_match_size(interpolation32, img16)
-    interpolation16 = self.alpha * img16 + (1-self.alpha) * ds16
-
-    x8 = self.block16to8(interpolation16)
-    img8 = self.block8_to_image(x8)
-    ds8  = self.downsample_to_match_size(interpolation16, img8)
-    interpolation8 = self.alpha * img8 + (1-self.alpha) * ds8
-
-    x4 = self.block8to4(interpolation8)
-    img4 = self.block4_to_image(x4)
-    ds4  = self.downsample_to_match_size(interpolation8, img4)
-    interpolation4 = self.alpha * img4 + (1-self.alpha) * ds4
-
-    ret = self.fq(interpolation4)
-
-    return ret.view(len(ret), -1)
-
-  def setAlpha(self, alfa):
-    self.alpha = alfa
-
-  def generar_bloque_fq_discriminador(self, inChan, outChan, kernel = 1, stride = 2, ultimaCapa = False):
-    return nn.Sequential(
-          nn.Conv2d(inChan, outChan, kernel, stride),
-          nn.BatchNorm2d(outChan),
-          nn.LeakyReLU(0.2, inplace = True),
-      )
-  
-  def downsample_to_match_size(self, bigger_image, smaller_image):
-    '''
-    Function for upsampling an image to the size of another: Given a two images (smaller and bigger), 
-    upsamples the first to have the same dimensions as the second.
-    Parameters:
-        smaller_image: the smaller image whose dimensions will be upsampled to
-        bigger_image: the bigger image to downsample 
-    '''
-    return F.interpolate(bigger_image, size=smaller_image.shape[-2:], mode='bilinear')
-
-#######################################################
-
-class DiscriminadorStyleMenosListo(nn.Module):
-
-  def __init__(self, inChan, outChan, kernel, hiddenDim, alpha):
-    super().__init__()
-    self.alpha = alpha
-    self.block64to32 = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block32to16 = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block16to8  = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block8to4   = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block32_to_image = nn.Conv2d(inChan,outChan, kernel_size = kernel, padding = 1)
-    self.block16_to_image = nn.Conv2d(inChan,outChan, kernel_size = kernel, padding = 1)
-    self.block8_to_image = nn.Conv2d(inChan,outChan, kernel_size = 2, padding = 1)
-    self.fq      = nn.Sequential(
-        self.generar_bloque_fq_discriminador(inChan, hiddenDim),
-        self.generar_bloque_fq_discriminador(hiddenDim, hiddenDim*2),
-        self.generar_bloque_fq_discriminador(hiddenDim*2, inChan),
-        nn.BatchNorm2d(outChan),
-        nn.LeakyReLU(0.2, inplace = True)
-    )
-
-  def forward(self, image):
-    x32 = self.block64to32(image)
-    img32 = self.block32_to_image(x32)
-    ds32  = self.downsample_to_match_size(image, img32)
-    interpolation32 = self.alpha * img32 + (1-self.alpha) * ds32
-
-    x16 = self.block32to16(interpolation32)
-    img16 = self.block16_to_image(x16)
-    ds16  = self.downsample_to_match_size(interpolation32, img16)
-    interpolation16 = self.alpha * img16 + (1-self.alpha) * ds16
-
-    x8 = self.block16to8(interpolation16)
-    img8 = self.block8_to_image(x8)
-    ds8  = self.downsample_to_match_size(interpolation16, img8)
-    interpolation8 = self.alpha * img8 + (1-self.alpha) * ds8
-
-    return self.fq(interpolation8)
-
-  def setAlpha(self, alfa):
-    self.alpha = alfa
-
-  def generar_bloque_fq_discriminador(self, inChan, outChan, kernel = 1, stride = 2, ultimaCapa = False):
-    return nn.Sequential(
-          nn.Conv2d(inChan, outChan, kernel, stride),
-          nn.BatchNorm2d(outChan),
-          nn.LeakyReLU(0.2, inplace = True),
-      )
-  
-  def downsample_to_match_size(self, bigger_image, smaller_image):
-    '''
-    Function for upsampling an image to the size of another: Given a two images (smaller and bigger), 
-    upsamples the first to have the same dimensions as the second.
-    Parameters:
-        smaller_image: the smaller image whose dimensions will be upsampled to
-        bigger_image: the bigger image to downsample 
-    '''
-    return F.interpolate(bigger_image, size=smaller_image.shape[-2:], mode='bilinear')
-
-######################################################
-
-class DiscriminadorStyleListo(nn.Module):
-
-  def __init__(self, inChan, outChan, kernel, hiddenDim, alpha):
-    super().__init__()
-    self.alpha = alpha
-    self.block64to32 = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block32to16 = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block16to8  = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block8to4   = nn.Conv2d(inChan,outChan,kernel, stride = 2) 
-    self.block32_to_image = nn.Conv2d(inChan,outChan, kernel_size = kernel, padding = 1)
-    self.block16_to_image = nn.Conv2d(inChan,outChan, kernel_size = kernel, padding = 1)
-    self.block8_to_image = nn.Conv2d(inChan,outChan, kernel_size = 2, padding = 1)
-    self.block4_to_image = nn.Conv2d(inChan,outChan, kernel_size = 1, padding = 1)
-    self.fq      = nn.Sequential(
-        self.generar_bloque_fq_discriminador(inChan, hiddenDim),
-        self.generar_bloque_fq_discriminador(hiddenDim, hiddenDim*2),
-        self.generar_bloque_fq_discriminador(hiddenDim*2, hiddenDim*4),
-        self.generar_bloque_fq_discriminador(hiddenDim*4, hiddenDim*8),
-        self.generar_bloque_fq_discriminador(hiddenDim*8, hiddenDim*4),
-        self.generar_bloque_fq_discriminador(hiddenDim*4, hiddenDim*2),
-        self.generar_bloque_fq_discriminador(hiddenDim*2, inChan),
-        nn.BatchNorm2d(outChan),
-        nn.LeakyReLU(0.2, inplace = True)
-    )
-
-  def forward(self, image):
-    x32 = self.block64to32(image)
-    img32 = self.block32_to_image(x32)
-    ds32  = self.downsample_to_match_size(image, img32)
-    interpolation32 = self.alpha * img32 + (1-self.alpha) * ds32
-
-    x16 = self.block32to16(interpolation32)
-    img16 = self.block16_to_image(x16)
-    ds16  = self.downsample_to_match_size(interpolation32, img16)
-    interpolation16 = self.alpha * img16 + (1-self.alpha) * ds16
-
-    x8 = self.block16to8(interpolation16)
-    img8 = self.block8_to_image(x8)
-    ds8  = self.downsample_to_match_size(interpolation16, img8)
-    interpolation8 = self.alpha * img8 + (1-self.alpha) * ds8
-
-    x4 = self.block8to4(interpolation8)
-    img4 = self.block4_to_image(x4)
-    ds4  = self.downsample_to_match_size(interpolation8, img4)
-    interpolation4 = self.alpha * img4 + (1-self.alpha) * ds4
-
-    return self.fq(interpolation4)
-
-  def setAlpha(self, alfa):
-    self.alpha = alfa
-
-  def generar_bloque_fq_discriminador(self, inChan, outChan, kernel = 1, stride = 2, ultimaCapa = False):
-    return nn.Sequential(
-          nn.Conv2d(inChan, outChan, kernel, stride),
-          nn.BatchNorm2d(outChan),
-          nn.LeakyReLU(0.2, inplace = True),
-      )
-  
-  def downsample_to_match_size(self, bigger_image, smaller_image):
-    '''
-    Function for upsampling an image to the size of another: Given a two images (smaller and bigger), 
-    upsamples the first to have the same dimensions as the second.
-    Parameters:
-        smaller_image: the smaller image whose dimensions will be upsampled to
-        bigger_image: the bigger image to downsample 
-    '''
-    return F.interpolate(bigger_image, size=smaller_image.shape[-2:], mode='bilinear')
-
-
 ## Discriminador con mejoras aprendidas del libro
 
 class Primer_Bloque_Disc_Libro(nn.Module):
@@ -345,12 +146,90 @@ class DiscriminadorLibro(nn.Module):
     return x.view((-1))
 
   def increaseAlfa(self, inc):
-    if self.bloque_act < len(self.bloques):
-      if self.bloques[self.bloque_act].getAlfa() < 1 :
+    if self.bloque_act >= 0:
+      if self.bloques[self.bloque_act].getAlfa() < 1:
         self.bloques[self.bloque_act].increaseAlfa(inc)
-        #print("El bloque " + str(self.bloque_act) + " tiene alfa = " + str(self.bloques[self.bloque_act].getAlfa()))
-        if self.bloques[self.bloque_act].getAlfa() >= 1 :
-          self.bloque_act = self.bloque_act + 1
+        if self.bloques[self.bloque_act].getAlfa() >= 1:
+          self.bloque_act = self.bloque_act - 1
+
+
+class BloqueDiscBloques(nn.Module):
+  def __init__(self, inChan, device):
+    super().__init__()
+    outChan = 3
+    kernel = 4
+    stride = 2
+    padding = 1
+
+    self.DSConv = nn.Conv2d(inChan, outChan, kernel, stride, padding).to(device)
+    self.batchNorm = nn.BatchNorm2d(3).to(device)
+    self.act = nn.LeakyReLU(0.2, False).to(device)
+    self.toImg = nn.Conv2d(outChan, 3, 1, 1).to(device)
+  
+  def forward(self, img):
+    img = self.DSConv(img)
+    img = self.batchNorm(img)
+    img = self.act(img)
+    img = self.toImg(img)
+    return img
+
+class DiscriminadorPorBloques(nn.Module):
+  def __init__(self, max_size, device):
+    super().__init__()
+    self.device = device
+    self.max_size = max_size
+
+    self.downsampler = nn.AvgPool2d(4,2,1).to(device)
+    size = 4
+    self.blocks = nn.ModuleList()
+    self.blocks.append(nn.Conv2d(3,1,4).to(device))
+    while size < self.max_size:
+      self.blocks.insert(0, BloqueDiscBloques(3,'cuda'))
+      size = size * 2
+    
+    self.alfa = 0
+    self.depth = 0
+    self.inSize = 4
+  
+  def forward(self, img):
+    in_ds = img
+    if self.depth > 0:
+      res_ds = self.downsampler(in_ds)
+
+      in_ds = self.blocks[-(self.depth+1)](in_ds)
+
+      in_ds = (self.alfa * in_ds) + ((1 - self.alfa) * res_ds)
+
+      next = - self.depth
+
+      for b in self.blocks[next: ]:
+        in_ds = b(in_ds)
+      
+      return in_ds
+    else :
+      return self.blocks[-1](in_ds)
+
+  def increaseAlfa(self,inc):
+    self.alfa = self.alfa + inc
+
+    if self.alfa >= 1 :
+      self.depth = self.depth + 1
+      self.alfa = 0
+      self.inSize = 2 * self.inSize
+      print("La depth actual es " + str(self.depth))
+    
+    if self.depth >= len(self.blocks):
+      self.depth = 0
+  
+  def getinSize(self):
+    return self.inSize
+
+    
+
+
+
+
+
 
 class ConvDiscriminator(nn.Module):
 
