@@ -636,7 +636,6 @@ class StyleNoCondGenerator(nn.Module):
         
 
     def forward(self, noise): 
-        print("Input noise shape = " + str(noise.shape))
         ret = self.gen(noise, self.depth, self.alfa)
 
         self.iter += 1
@@ -651,7 +650,7 @@ class StyleNoCondGenerator(nn.Module):
         if self.alfa >= 1 :
             self.alfa = 0
             self.depth = self.depth + 1
-            if self.depth > self.gen.g_synthesis.num_layers:
+            if self.depth > 4:
                 self.depth = 0
 
     def getNoiseDim(self):

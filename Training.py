@@ -588,10 +588,10 @@ class Style_Trainer:
     def train_disc(self, real_data):
         
         real_data = real_data.to(self.device)
-
         in_size = self.disc.getinSize()
         while real_data.shape[2] != in_size:
             real_data = self.downsampler(real_data)
+
 
         self.enable_training(self.gen, False)
         self.enable_training(self.disc,True)

@@ -220,6 +220,7 @@ class DiscriminadorPorBloques(nn.Module):
     
     if self.depth >= len(self.blocks):
       self.depth = 0
+      self.inSize = 4
   
   def getinSize(self):
     return self.inSize
