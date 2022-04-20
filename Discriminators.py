@@ -154,37 +154,74 @@ class DiscriminadorLibro(nn.Module):
 
 
 class BloqueDiscBloques(nn.Module):
+  """
+  :param inChan : number of channels of the input tensor
+  :param device : either cuda or cpu
+
+  DSConv1 performs a convolution with no efect on the dimension of the input tensor
+  Act runs the input through a LeakyReLU
+  BatchNorm normalizes the input taking into account the running mean and the std deviation of the batch
+  DSConv2 performs a convolution that halves the height and the width of the input tensor
+  """
   def __init__(self, inChan, device):
     super().__init__()
-    outChan = 3
     kernel = 4
     stride = 2
     padding = 1
 
-    self.DSConv = nn.Conv2d(inChan, outChan, kernel, stride, padding).to(device)
-    self.batchNorm = nn.BatchNorm2d(3).to(device)
-    self.act = nn.LeakyReLU(0.2, False).to(device)
-    self.toImg = nn.Conv2d(outChan, 3, 1, 1).to(device)
+    self.DSConv1 = nn.Conv2d(inChan, inChan,1).to(device)
+    self.DSConv2 = nn.Conv2d(inChan, inChan, kernel, stride, padding).to(device)
+    self.batchNorm = nn.BatchNorm2d(inChan).to(device)
+    self.act1 = nn.LeakyReLU(0.02, True).to(device)
+    self.act2 = nn.LeakyReLU(0.02, True).to(device)
   
   def forward(self, img):
-    img = self.DSConv(img)
+    img = self.DSConv1(img)
+    img = self.act1(img)
     img = self.batchNorm(img)
-    img = self.act(img)
-    img = self.toImg(img)
+    img = self.DSConv2(img)
+    img = self.act2(img)
+    return img
+
+class UltimoBloqueDiscBloques(nn.Module):
+  def __init__(self, inChan, device):
+    super().__init__()
+    inFeat = inChan * 4 * 4
+    # print("INFEAT = " + str(inFeat))
+    self.conv  = nn.Conv2d(inChan, inChan, 1).to(device)
+    self.act1  = nn.LeakyReLU(0.02, True).to(device)
+    self.lin1  = nn.Linear(inFeat, inChan).to(device)
+    self.act2  = nn.LeakyReLU(0.02, True).to(device)
+    self.lin2  = nn.Linear(inChan, 1).to(device)
+  
+  def forward(self, img):
+    # print("Shape input ultimo bloque " + str(img.shape))
+    img = self.conv(img)
+    img = self.act1(img)
+    img = img.view(img.shape[0],-1)
+    img = self.lin1(img)
+    img = self.act2(img)
+    img = self.lin2(img)
     return img
 
 class DiscriminadorPorBloques(nn.Module):
-  def __init__(self, max_size, device):
+  def __init__(self, max_size, inChan, hiddenChan, device):
     super().__init__()
     self.device = device
     self.max_size = max_size
+    self.inChan = inChan
+    self.hiddenChan = hiddenChan
 
     self.downsampler = nn.AvgPool2d(4,2,1).to(device)
-    size = 4
     self.blocks = nn.ModuleList()
-    self.blocks.append(nn.Conv2d(3,1,4).to(device))
+    self.from_rgb = nn.ModuleList()
+    
+    size = 4
+    self.blocks.append(UltimoBloqueDiscBloques(hiddenChan,device))
+    self.from_rgb.append(nn.Conv2d(inChan, hiddenChan, 1).to(device))
     while size < self.max_size:
-      self.blocks.insert(0, BloqueDiscBloques(3,'cuda'))
+      self.blocks.insert(0, BloqueDiscBloques(hiddenChan, device))
+      self.from_rgb.insert(0, nn.Conv2d(inChan, hiddenChan, 1).to(device))
       size = size * 2
     
     self.alfa = 0
@@ -195,6 +232,10 @@ class DiscriminadorPorBloques(nn.Module):
     in_ds = img
     if self.depth > 0:
       res_ds = self.downsampler(in_ds)
+      rgb = self.depth-1 if self.depth-1 != 0 else -1
+      res_ds = self.from_rgb[-(rgb)](res_ds)
+
+      in_ds = self.from_rgb[-(self.depth+1)](in_ds)
 
       in_ds = self.blocks[-(self.depth+1)](in_ds)
 
@@ -204,26 +245,31 @@ class DiscriminadorPorBloques(nn.Module):
 
       for b in self.blocks[next: ]:
         in_ds = b(in_ds)
-      
+
       return in_ds
     else :
+      in_ds = self.from_rgb[-1](in_ds)
       return self.blocks[-1](in_ds)
 
   def increaseAlfa(self,inc):
     self.alfa = self.alfa + inc
 
     if self.alfa >= 1 :
-      self.depth = self.depth + 1
-      self.alfa = 0
-      self.inSize = 2 * self.inSize
-      print("La depth actual es " + str(self.depth))
+      self.alfa = 1
     
-    if self.depth >= len(self.blocks):
-      self.depth = 0
-      self.inSize = 4
+
   
   def getinSize(self):
     return self.inSize
+
+  def resetAlfa(self):
+    self.alfa = 0
+
+  def increaseDepth(self):
+    self.depth = self.depth + 1
+    self.inSize = 2 * self.inSize
+    if self.depth >= len(self.blocks):
+      self.depth = len(self.blocks) - 1
 
     
 

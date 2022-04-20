@@ -627,7 +627,7 @@ class Style_Trainer:
                 self.disc_fake_loss.append(f_loss)
                 self.disc_real_loss.append(r_loss)
 
-            self.ejeX.append(self.iter)
+            
 
             if self.iter % self.log_step == 0 and self.iter > 0 :
                 self.plot_losses()
@@ -738,6 +738,7 @@ class Style_Trainer:
         title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
         print(title)
         
+        self.ejeX.append(self.iter)
         arEjeX = np.array(self.ejeX)
         plt.plot(arEjeX, np.array(self.gen_loss_plot), label = "Gen Loss")
         plt.plot(arEjeX, np.array(self.disc_loss_plot), label = "Disc Loss")
@@ -784,4 +785,300 @@ class Style_Trainer:
         os.chdir('..')
         
 
+class Style_Prog_Trainer:
+    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, increase_alfa_step,alfa_step, device, 
+    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None):
+        
+        self.disc = discriminator
+        self.gen  = generator
+        self.criterion = criterion
 
+        self.device = device
+
+        self.dataloader = dataloader
+
+        self.resdir = dir
+        self.log_step = log_step
+
+        self.iter = 0
+
+        self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=Constants.LR)
+        self.disc_opt = torch.optim.Adam(self.disc.parameters(), lr=Constants.LR)
+        self.downsampler = nn.AvgPool2d(4,2,1)
+
+        self.verb = verb
+        self.gen_loss = []
+        self.gen_loss_plot = []
+        self.disc_loss = []
+        self.disc_loss_plot = []
+        if self.verb :
+            self.disc_fake_loss = []
+            self.disc_fake_loss_plot = []
+            self.disc_real_loss = []
+            self.disc_real_loss_plot = []
+        self.ejeX = []
+
+        if load :
+            os.chdir(load_dir)
+
+            c_g = torch.load(gen_load)
+            c_d = torch.load(disc_load)
+
+            self.disc.load_state_dict(c_d['model_state_dict'])
+            self.disc_opt.load_state_dict(c_d['optimizer_state_dict'])
+            self.disc_loss.append( c_d['loss'] )
+
+            self.gen.load_state_dict(c_g['model_state_dict'])
+            self.gen_opt.load_state_dict(c_g['optimizer_state_dict'])
+            self.gen_loss.append( c_g['loss'] )
+
+            os.chdir('..')
+
+        if checksave:
+            self.save_step = save_step
+
+        if prog :
+            self.increase_alfa_step = increase_alfa_step
+            self.alfa_step = alfa_step
+            self.prog = prog
+        else:
+            self.prog = False
+            self.alfa_step = 0
+            self.increase_alfa_step = 0
+
+
+    def enable_training(self, model, flag):
+        for p in model.parameters():
+            p.requires_grad = flag
+
+    def check_training_params(self, model, flag):
+        for p in model.parameters():
+            assert(p.requires_grad == flag)
+
+    def train_gen(self):
+
+        self.enable_training(self.gen, True)
+        self.enable_training(self.disc,False)
+
+        noise = torch.randn(Constants.BATCH_SIZE, 512).to(self.device)
+
+        fake = self.gen(noise)
+        fake_pred = self.disc(fake)
+
+        loss = self.criterion(fake_pred, torch.zeros_like(fake_pred))
+
+        self.check_training_params(self.gen, True)
+        self.check_training_params(self.disc, False)
+
+        self.gen_opt.zero_grad()
+        loss.backward(retain_graph = True)
+        self.gen_opt.step()
+        
+        self.check_training_params(self.gen, True)
+        self.check_training_params(self.disc, False)
+
+        return (loss.item(), fake)
+
+
+    def train_disc(self, real_data):
+        
+        real_data = real_data.to(self.device)
+        in_size = self.disc.getinSize()
+        while real_data.shape[2] != in_size:
+            real_data = self.downsampler(real_data)
+
+
+        self.enable_training(self.gen, False)
+        self.enable_training(self.disc,True)
+
+        noise = torch.randn(Constants.BATCH_SIZE, 512).to('cuda')
+
+        fake = self.gen(noise)
+        fake_pred = self.disc(fake)
+
+        real_pred = self.disc(real_data)
+
+        perdidasFalsas = self.criterion(fake_pred, torch.zeros_like(fake_pred))
+        perdidasReales = self.criterion(real_pred, torch.ones_like(real_pred))
+        perdidasTotales = (perdidasFalsas + perdidasReales) / 2
+
+        self.disc_opt.zero_grad()
+        perdidasTotales.backward()
+        self.disc_opt.step()
+
+        return (perdidasTotales.item(), perdidasFalsas.item(), perdidasReales.item())
+
+    def epoch(self):
+        it = 0
+        for real in tqdm(self.dataloader):
+            
+            g_loss, generated = self.train_gen()
+            t_loss, f_loss, r_loss = self.train_disc(real)
+
+            self.gen_loss.append(g_loss)
+            self.disc_loss.append(t_loss)
+
+            if self.verb:
+                self.disc_fake_loss.append(f_loss)
+                self.disc_real_loss.append(r_loss)
+
+
+            self.iter = self.iter + 1
+            it = it + 1
+
+            if self.iter % self.log_step == 0 and self.iter > 0 :
+                self.plot_losses()
+                self.save_results(real, generated)
+
+            if it % self.increase_alfa_step == 0 and it > 0:
+                self.gen.increaseAlfa(self.alfa_step)
+                self.disc.increaseAlfa(self.alfa_step)
+        
+            if self.iter % self.save_step == 0:
+                self.saveCheckpoint(self.resdir, self.gen, self.disc, self.gen_opt, self.disc_opt, self.gen_loss[-1], self.disc_loss[-1], 0, self.iter)
+
+    
+    def gen_epoch(self):
+
+        for _ in range(self.dataloader.__len__()):
+            g_loss, fake = self.train_gen()
+
+            self.gen_loss.append(g_loss)
+
+            if self.iter % self.log_step == 0 and self.iter > 0:
+
+                prom = sum(self.gen_loss[-self.log_step: ]) / self.log_step
+                self.gen_loss_plot.append( prom )
+
+                self.ejeX.append(self.iter)
+                
+                print("ITER " + str(self.iter) + " GENLOSS " + str(self.gen_loss_plot[-1]))
+
+                os.chdir(self.resdir)
+                
+                plt.plot(np.array(self.ejeX), np.array(self.gen_loss_plot), label = "Gen Loss")
+                plt.title("Gen Loss: " + str(self.gen_loss_plot[-1]))
+                plt.legend()
+                plt.savefig("Gen " + datetime.now().strftime("%d-%m") + " iter " + str(self.iter) + '.svg')
+                plt.clf()
+
+                os.chdir('..')
+                
+            if self.prog and self.iter % self.increase_alfa_step == 0 and self.iter > 0:
+                self.gen.increaseAlfa(self.alfa_step)
+
+            self.iter = self.iter + 1
+
+    def disc_epoch(self):
+
+        for real in tqdm(self.dataloader):
+            d_loss, f_loss, r_loss = self.train_disc(real)
+
+            self.disc_loss.append(d_loss)
+            
+            if self.verb :
+                self.disc_fake_loss.append(f_loss)
+                self.disc_real_loss.append(r_loss)
+            
+            if self.prog and self.iter % self.increase_alfa_step == 0 and self.iter > 0:
+                self.disc.increaseAlfa(self.alfa_step)
+
+            if self.iter % self.log_step == 0 and self.iter > 0:
+                self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step: ])/self.log_step)
+
+                if self.verb :
+                    self.disc_fake_loss_plot.append(sum(self.disc_fake_loss[-self.log_step:])/self.log_step)
+                    self.disc_real_loss_plot.append(sum(self.disc_real_loss[-self.log_step:])/self.log_step)
+                
+                os.chdir(self.resdir)
+
+                plt.plot(np.array(self.ejeX), np.array(self.disc_loss_plot), label = "Disc avg loss")
+                if self.verb:
+                    plt.plot(np.array(self.ejeX), np.array(self.disc_fake_loss_plot), label = "Disc fake loss")
+                    plt.plot(np.array(self.ejeX), np.array(self.disc_real_loss_plot), label = "Disc real loss")
+                
+                plt.legend()
+                plt.savefig("Disc " + datetime.now().strftime("%d-%m") + " iter " + str(self.iter) + ".svg")
+                plt.clf()
+
+                os.chdir("..")
+
+            self.iter = self.iter + 1
+
+    def train_for_epochs(self, epochs_for_depth):
+
+        for i in range(0, len(epochs_for_depth)):
+            for _ in range(0, epochs_for_depth[i]):
+                self.epoch()
+            
+            self.gen.increaseDepth()
+            self.disc.increaseDepth()
+            print("Tamanio = " + str(self.disc.getinSize()))
+
+    def train_generator_for_epochs(self, n_epochs):
+        print("Empieza el entrenamiento")
+        for _ in range(n_epochs):
+            self.gen_epoch()
+
+    def train_discriminator_for_epochs(self, n_epochs):
+        for _ in range(n_epochs):
+            self.disc_epoch()
+
+
+    def plot_losses(self):
+
+        self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step:])/self.log_step)
+        self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
+
+        if self.verb :
+            self.disc_fake_loss_plot.append(sum(self.disc_fake_loss[-self.log_step:])/self.log_step)
+            self.disc_real_loss_plot.append(sum(self.disc_real_loss[-self.log_step:])/self.log_step)
+
+        title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
+        print(title)
+        
+        self.ejeX.append(self.iter)
+        arEjeX = np.array(self.ejeX)
+        plt.plot(arEjeX, np.array(self.gen_loss_plot), label = "Gen Loss")
+        plt.plot(arEjeX, np.array(self.disc_loss_plot), label = "Disc Loss")
+
+        if self.verb :
+            plt.plot(arEjeX, np.array(self.disc_fake_loss_plot), label = "Disc Fake Loss")
+            plt.plot(arEjeX, np.array(self.disc_real_loss_plot), label = "Disc Real Loss")
+
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.resdir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        os.chdir('..')
+
+        plt.clf()
+
+    def save_results(self, real, generated):
+        ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.resdir, save = True, show = False)
+        ImageFunctions.tensor_as_image(real, self.iter, "real", self.resdir, save = True, show = False)            
+
+    def saveCheckpoint(self, dir, gen, disc, gen_opt, disc_opt, gen_loss, disc_loss, epoch, iter):
+        os.chdir(dir)
+
+        g_s = 'gen_' + str(iter) + '.tar'
+        d_s = 'disc_' + str(iter) + '.tar'
+
+        torch.save({
+        'epoch' : epoch ,
+        'iter' : iter,
+        'model_state_dict' : gen.state_dict(), 
+        'optimizer_state_dict' : gen_opt.state_dict(),
+        'loss' : gen_loss
+        }, g_s)
+
+        torch.save({
+            'epoch' : epoch,
+            'iter' : iter,
+            'model_state_dict' : disc.state_dict(),
+            'optimizer_state_dict' : disc_opt.state_dict(),
+            'loss' : disc_loss
+        }, d_s)
+
+        os.chdir('..')

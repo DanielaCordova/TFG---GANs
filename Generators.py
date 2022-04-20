@@ -648,15 +648,21 @@ class StyleNoCondGenerator(nn.Module):
 
         self.alfa = self.alfa + alfa
         if self.alfa >= 1 :
-            self.alfa = 0
-            self.depth = self.depth + 1
-            if self.depth > 4:
-                self.depth = 0
+            self.alfa = 1
 
     def getNoiseDim(self):
         return self.resolution
     
+    def resetAlfa(self):
+        self.alfa = 0
 
+    def getDepth(self):
+        return 4
+
+    def increaseDepth(self):
+        self.depth = self.depth + 1
+        if self.depth > 4:
+            self.depth = 4
 
 
 

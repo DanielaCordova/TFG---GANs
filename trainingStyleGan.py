@@ -31,7 +31,7 @@ else:
 
 # Modulos
 
-disc = Discriminators.DiscriminadorPorBloques(64, 'cuda')
+disc = Discriminators.DiscriminadorPorBloques(64,3,512,'cuda')
 gen = Generators.StyleNoCondGenerator(64,Constants.BATCH_SIZE,0,'cuda')
 
 disc_opt = torch.optim.Adam(disc.parameters(), lr=Constants.LR)
@@ -46,7 +46,7 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'porfa1Epoch'
+training_dir = 'trainingPaperLike-GenPaper-DiscNuestrov2'
 
 # Dataset
 
@@ -58,14 +58,19 @@ os.mkdir(training_dir)
 
 # Entrenamiento
 
-criterion = nn.BCEWithLogitsLoss()
-n_epochs = 1
-display_step = 2500
-increase_alfa_step = 16
-alfa_step = 0.0625
-checkpoint_step = 1
+## 67692 longitud del dataset = len
+## 2116 batches de 64 imagenes = (len / batch_size) +  1 si (len % batch_size==0) = num_batches
+## Deberia subir (1/2116) el alfa por cada batch = 1 / num_batches
+## Va a subir (1/2116) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
 
-trainer = Training.Style_Trainer(dataLoader, gen, disc, criterion, training_dir, display_step, True, True, alfa_step, increase_alfa_step, 'cuda', True, checkpoint_step
+criterion = nn.BCEWithLogitsLoss()
+n_epochs = [5,5,5,5,64]
+display_step = 5000
+increase_alfa_step = 25
+alfa_step = (1/len(dataLoader)) * increase_alfa_step
+checkpoint_step = 10000
+
+trainer = Training.Style_Prog_Trainer(dataLoader, gen, disc, criterion, training_dir, display_step, True, True, increase_alfa_step, alfa_step, 'cuda', True, checkpoint_step
 ,load, load_folder, gen_load, disc_load)
 
 trainer.train_for_epochs(n_epochs)
