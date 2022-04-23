@@ -1,7 +1,9 @@
+from turtle import down
 import torch.nn as nn
 import torch.functional as F
 import torch.nn.functional as nnF
-import math
+import CustomLayers as cl
+import Blocks as bk
 
 
 
@@ -163,22 +165,22 @@ class BloqueDiscBloques(nn.Module):
   BatchNorm normalizes the input taking into account the running mean and the std deviation of the batch
   DSConv2 performs a convolution that halves the height and the width of the input tensor
   """
-  def __init__(self, inChan, device):
+  def __init__(self, inChan, outChan, device):
     super().__init__()
     kernel = 4
     stride = 2
     padding = 1
 
-    self.DSConv1 = nn.Conv2d(inChan, inChan,1).to(device)
-    self.DSConv2 = nn.Conv2d(inChan, inChan, kernel, stride, padding).to(device)
-    self.batchNorm = nn.BatchNorm2d(inChan).to(device)
-    self.act1 = nn.LeakyReLU(0.02, True).to(device)
-    self.act2 = nn.LeakyReLU(0.02, True).to(device)
+    self.DSConv1 = bk.Conv2dPropia(inChan, inChan, 3,).to(device)
+    self.DSConv2 = bk.Conv2DownPropia(inChan, outChan, 3).to(device)
+    #self.batchNorm = nn.BatchNorm2d(inChan).to(device)
+    self.act1 = nn.LeakyReLU(0.2, True).to(device)
+    self.act2 = nn.LeakyReLU(0.2, True).to(device)
   
   def forward(self, img):
     img = self.DSConv1(img)
     img = self.act1(img)
-    img = self.batchNorm(img)
+    #img = self.batchNorm(img)
     img = self.DSConv2(img)
     img = self.act2(img)
     return img
@@ -188,17 +190,19 @@ class UltimoBloqueDiscBloques(nn.Module):
     super().__init__()
     inFeat = inChan * 4 * 4
     # print("INFEAT = " + str(inFeat))
-    self.conv  = nn.Conv2d(inChan, inChan, 1).to(device)
+    self.st    = bk.StddevLayer(4,1)
+    self.conv  = bk.Conv2dPropia(inChan+1, inChan, 1).to(device)
     self.act1  = nn.LeakyReLU(0.02, True).to(device)
-    self.lin1  = nn.Linear(inFeat, inChan).to(device)
+    self.lin1  = cl.EqualizedLinear(inFeat, inChan).to(device)
     self.act2  = nn.LeakyReLU(0.02, True).to(device)
-    self.lin2  = nn.Linear(inChan, 1).to(device)
+    self.lin2  = cl.EqualizedLinear(inChan, 1).to(device)
   
   def forward(self, img):
-    # print("Shape input ultimo bloque " + str(img.shape))
+    img = self.st(img)
     img = self.conv(img)
     img = self.act1(img)
     img = img.view(img.shape[0],-1)
+    #img = img.view(512, 8192)
     img = self.lin1(img)
     img = self.act2(img)
     img = self.lin2(img)
@@ -211,6 +215,8 @@ class DiscriminadorPorBloques(nn.Module):
     self.max_size = max_size
     self.inChan = inChan
     self.hiddenChan = hiddenChan
+  
+    from_rgb_chan = [256, 512, 512, 512, 512]
 
     self.downsampler = nn.AvgPool2d(4,2,1).to(device)
     self.blocks = nn.ModuleList()
@@ -218,12 +224,15 @@ class DiscriminadorPorBloques(nn.Module):
     
     size = 4
     self.blocks.append(UltimoBloqueDiscBloques(hiddenChan,device))
-    self.from_rgb.append(nn.Conv2d(inChan, hiddenChan, 1).to(device))
+    self.from_rgb.append(cl.EqualizedConv2d(inChan, hiddenChan, 1).to(device))
+    i = -2
     while size < self.max_size:
-      self.blocks.insert(0, BloqueDiscBloques(hiddenChan, device))
-      self.from_rgb.insert(0, nn.Conv2d(inChan, hiddenChan, 1).to(device))
+      self.blocks.insert(0, BloqueDiscBloques(from_rgb_chan[i] , hiddenChan, device))
+      self.from_rgb.insert(0, cl.EqualizedConv2d(inChan, from_rgb_chan[i], 1).to(device))
       size = size * 2
-    
+      i = i - 1
+
+
     self.alfa = 0
     self.depth = 0
     self.inSize = 4
@@ -257,7 +266,11 @@ class DiscriminadorPorBloques(nn.Module):
     if self.alfa >= 1 :
       self.alfa = 1
     
+  def getAlfa(self):
+    return self.alfa
 
+  def getDepth(self):
+    return self.depth
   
   def getinSize(self):
     return self.inSize
@@ -268,8 +281,11 @@ class DiscriminadorPorBloques(nn.Module):
   def increaseDepth(self):
     self.depth = self.depth + 1
     self.inSize = 2 * self.inSize
+    print("Alfa antes de cambiar de bloque = " + str(self.alfa))
+    self.resetAlfa()
     if self.depth >= len(self.blocks):
       self.depth = len(self.blocks) - 1
+      self.inSize = int(self.inSize / 2)
 
     
 

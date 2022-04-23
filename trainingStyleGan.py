@@ -46,7 +46,7 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'trainingPaperLike-GenPaper-DiscNuestrov2'
+training_dir = 'trainingPaperLike-GenPaper-DiscNuestrov9'
 
 # Dataset
 
@@ -59,15 +59,15 @@ os.mkdir(training_dir)
 # Entrenamiento
 
 ## 67692 longitud del dataset = len
-## 2116 batches de 64 imagenes = (len / batch_size) +  1 si (len % batch_size==0) = num_batches
-## Deberia subir (1/2116) el alfa por cada batch = 1 / num_batches
-## Va a subir (1/2116) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
+## 4231 batches de 64 imagenes = (len / batch_size) +  1 si (len % batch_size==0) = num_batches
+## Deberia subir (1/4231) el alfa por cada batch = 1 / num_batches
+## Va a subir (1/4231) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
 
-criterion = nn.BCEWithLogitsLoss()
+criterion = Training.StyleGANLoss()
 n_epochs = [5,5,5,5,64]
-display_step = 5000
-increase_alfa_step = 25
-alfa_step = (1/len(dataLoader)) * increase_alfa_step
+display_step = int(67692/Constants.BATCH_SIZE) 
+increase_alfa_step = 8
+alfa_step = (1/(4*len(dataLoader))) * increase_alfa_step
 checkpoint_step = 10000
 
 trainer = Training.Style_Prog_Trainer(dataLoader, gen, disc, criterion, training_dir, display_step, True, True, increase_alfa_step, alfa_step, 'cuda', True, checkpoint_step

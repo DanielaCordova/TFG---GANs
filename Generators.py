@@ -21,6 +21,9 @@ class GeneradorCondicional(nn.Module):
         x = input.view(len(input), self.inDim, 1, 1)
         return self.gen(x)
 
+    def getInDim(self):
+        return self.inDim
+
     def generar_bloque_generador(self, inChan, outChan, kernTam=3, stride=2, ultimaCapa=False):
         if ultimaCapa:
             return nn.Sequential(
@@ -655,12 +658,19 @@ class StyleNoCondGenerator(nn.Module):
     
     def resetAlfa(self):
         self.alfa = 0
+    
+    def getAlfa(self):
+        return self.alfa
 
     def getDepth(self):
-        return 4
+        return self.depth
+  
+    def getinSize(self):
+        return self.inSize
 
     def increaseDepth(self):
         self.depth = self.depth + 1
+        self.resetAlfa()
         if self.depth > 4:
             self.depth = 4
 

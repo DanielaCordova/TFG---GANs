@@ -1,6 +1,9 @@
 import torch.nn as nn
 import torch as torch
 import StyleComponents as stylecomp
+import CustomLayers as cl
+import Discriminators as dc
+from torchsummary import summary
 
 #shape = torch.empty((1,3,1,1))
 #entrada = torch.ones_like(shape)
@@ -14,9 +17,20 @@ import StyleComponents as stylecomp
 # salida = bloque(entrada)
 # print(salida.shape)
 
-b = nn.Conv2d(3,512,1)
-i = torch.rand(32,3,4,4)
+# b = nn.Conv2d(3,512,1)
+# i = torch.rand(32,3,4,4)
 
-r = b(i)
+# r = b(i)
 
-print(r.shape)
+# print(r.shape)
+
+# i = torch.rand(32,3,8,8)
+# b = cl.EqualizedConv2d(3,512,4,2, downscale = True)
+
+# r = b(i)
+# print(r.shape)
+
+dis = dc.DiscriminadorPorBloques(64,3,512,'cuda')
+
+
+summary(dis, (3,4,4))
