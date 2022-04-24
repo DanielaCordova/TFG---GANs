@@ -79,6 +79,7 @@ class GAN_Trainer:
         self.gen_plot_loss = []
         self.dis_plot_loss = []
         self.ejeX          = []
+        self.act           = 0
 
     @abstractclassmethod
     def preprocessRealData(self,real):
@@ -177,7 +178,7 @@ class Cond_Trainer(GAN_Trainer):
         c_g = torch.load(self.gen_load)
         c_d = torch.load(self.disc_load)
 
-        self.ac = c_d['epoch']
+        self.act = c_d['epoch']
 
         self.disc.load_state_dict(c_d['model_state_dict'])
         self.disc_opt.load_state_dict(c_d['optimizer_state_dict'])
@@ -265,6 +266,68 @@ class Cond_Trainer(GAN_Trainer):
     def train_disc(self, real):
         self.enable_training(self.generator, False)
         self.enable_training(self.discriminator, True)
+
+        real, tag = real
+
+        d = [0,0,0,0]
+        d[0] = Constants.BATCH_SIZE
+        d[1], d[2], d[3] = self.generator.getInDim()
+        noise = torch.randn((d[0], d[1], d[2], d[3]))
+
+        img_vec_tag = tag[:,:,None,None]
+        img_vec_tag = img_vec_tag.repeat(1,1, real.shape[1], real.shape[2])
+        noise_tag = torch.cat((noise.float(), img_vec_tag.float()),1)
+
+        fake = self.generator(noise_tag)
+        fake_tag = torch.cat((fake.float(), img_vec_tag.float()),1)
+
+        f_pred = self.discriminator(fake_tag)
+        r_pred = self.discriminator(real)
+
+        fake_loss = self.criterion(f_pred, torch.zeros_like(f_pred))
+        real_loss = self.criterion(r_pred, torch.ones_like(r_pred))
+        total_loss = (fake_loss + real_loss) / 2
+
+        self.disc_opt.zero_grad()
+        total_loss.backward()
+        self.disc_opt.step()
+
+        return total_loss.item(), real_loss.item(), fake_loss.item()
+
+    def train_for_epochs(self, n_epochs):
+        for e in range(0, n_epochs):
+            self.epoch(e + self.act)
+            self.act += 1
+    
+    def plot_losses(self):
+        
+        self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step:])/self.log_step)
+        self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
+
+        if self.verb :
+            self.dis_fake_loss_plot.append(sum(self.dis_fake_loss[-self.log_step])/self.log_step)
+            self.dis_real_loss_plot.append(sum(self.dis_real_loss[-self.log_step])/self.log_step)
+
+        title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
+        print(title)
+        
+        self.ejeX.append(self.iter)
+        arEjeX = np.array(self.ejeX)
+        plt.plot(arEjeX, np.array(self.gen_loss_plot), label = "Gen Loss")
+        plt.plot(arEjeX, np.array(self.disc_loss_plot), label = "Disc Loss")
+
+        if self.verb :
+            plt.plot(arEjeX, np.array(self.dis_fake_loss_plot), label = "Disc Fake Loss")
+            plt.plot(arEjeX, np.array(self.dis_real_loss_plot), label = "Disc Real Loss")
+
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.resdir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        os.chdir('..')
+
+        plt.clf()
         
 
 class Style_Prog_Trainer:
