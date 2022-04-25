@@ -3,6 +3,7 @@ import torch as torch
 import StyleComponents as stylecomp
 import CustomLayers as cl
 import Discriminators as dc
+import Generators as gn
 from torchsummary import summary
 
 #shape = torch.empty((1,3,1,1))
@@ -30,7 +31,10 @@ from torchsummary import summary
 # r = b(i)
 # print(r.shape)
 
-dis = dc.DiscriminadorPorBloques(64,3,512,'cuda')
+# dis = dc.DiscriminadorPorBloques(64,3,512,'cuda')
 
 
-summary(dis, (3,4,4))
+# summary(dis, (3,4,4))
+
+gen = gn.GeneradorCondicional(131+64, 131, 3, 64)
+summary(gen, (1,131+64))

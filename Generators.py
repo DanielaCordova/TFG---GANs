@@ -11,10 +11,12 @@ class GeneradorCondicional(nn.Module):
         super(GeneradorCondicional, self).__init__()
         self.inDim = noiseDim  
         self.gen = nn.Sequential(
-            self.generar_bloque_generador(self.inDim, hiddenDim * 4),
-            self.generar_bloque_generador(hiddenDim * 4, hiddenDim * 2, kernTam=4, stride=1),
-            self.generar_bloque_generador(hiddenDim * 2, hiddenDim),
-            self.generar_bloque_generador(hiddenDim, numChan, kernTam=4, ultimaCapa=True),
+            self.generar_bloque_generador(self.inDim, hiddenDim * 16), # 3 out
+            self.generar_bloque_generador(hiddenDim * 16, hiddenDim * 8, kernTam=4, stride=1), # 6 out
+            self.generar_bloque_generador(hiddenDim * 8, hiddenDim * 4), # 13 out
+            self.generar_bloque_generador(hiddenDim * 4, hiddenDim * 2), # 27 out
+            self.generar_bloque_generador(hiddenDim * 2, hiddenDim ),    # 55 out
+            self.generar_bloque_generador(hiddenDim, numChan, kernTam=4, ultimaCapa=True), # 112 out
         )
 
     def forward(self, input):

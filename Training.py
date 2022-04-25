@@ -1,5 +1,6 @@
 
 from abc import abstractclassmethod
+from venv import create
 import tqdm
 import Constants
 import StyleComponents
@@ -56,7 +57,9 @@ def saveCheckpoint(dir, gen, disc, gen_opt, disc_opt, gen_loss, disc_loss, epoch
     os.chdir('..')
 
 class GAN_Trainer:
-    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, checksave, save_step, load, load_dir, gen_load, disc_load):
+    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, checksave = False, save_step = None, load = False, 
+    load_dir = None, gen_load = None, disc_load = None, device = 'cuda'):
+        self.device        = device
         self.dataloader    = dataloader
         self.generator     = generator
         self.discriminator = discriminator
@@ -64,8 +67,8 @@ class GAN_Trainer:
         self.log_step      = log_step
         self.log_dir       = log_dir
         self.checksave     = checksave
-        self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=Constants.LR)
-        self.disc_opt = torch.optim.Adam(self.disc.parameters(), lr=Constants.LR)
+        self.gen_opt = torch.optim.Adam(self.generator.parameters(), lr=Constants.LR)
+        self.disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=Constants.LR)
         if checksave :
             self.save_step = save_step
         self.load          = load
@@ -96,8 +99,6 @@ class GAN_Trainer:
     def epoch(self, ep):
         it = 0
         for real in tqdm(self.dataloader):
-
-            real = real.to(self.device)
 
             real = self.preprocessRealData(real)
 
@@ -156,10 +157,10 @@ class GAN_Trainer:
             assert(p.requires_grad == flag)
 
 class Cond_Trainer(GAN_Trainer):
-    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, num_classes, verb = False, checksave = False, save_step = None, load = False
+    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, num_classes, device = 'cuda', verb = False, checksave = False, save_step = None, load = False
     , load_dir = None, gen_load = None, disc_load = None):
-        super().__init__(dataloader, generator, discriminator, criterion, log_step, log_dir, checksave, save_step, load, load_dir, gen_load, disc_load)
 
+        super().__init__(dataloader, generator, discriminator, criterion, log_step, log_dir, checksave, save_step, load, load_dir, gen_load, disc_load, device = device)
         self.verb          = verb
         self.num_classes   = num_classes
 
@@ -180,9 +181,9 @@ class Cond_Trainer(GAN_Trainer):
 
         self.act = c_d['epoch']
 
-        self.disc.load_state_dict(c_d['model_state_dict'])
+        self.discriminator.load_state_dict(c_d['model_state_dict'])
         self.disc_opt.load_state_dict(c_d['optimizer_state_dict'])
-        self.disc_loss.append( c_d['loss'] )
+        self.dis_loss.append( c_d['loss'] )
 
 
         self.gen.load_state_dict(c_g['model_state_dict'])
@@ -192,21 +193,21 @@ class Cond_Trainer(GAN_Trainer):
         os.chdir('..')
 
     def saveCheckpoint(self, epoch):
-        os.chdir(self.resdir)
+        os.chdir(self.log_dir)
 
         g_s = 'gen_' + str(epoch) + '.tar'
         d_s = 'disc_' + str(epoch) + '.tar'
 
         torch.save({
         'epoch' : epoch,
-        'model_state_dict' : self.gen.state_dict(), 
+        'model_state_dict' : self.generator.state_dict(), 
         'optimizer_state_dict' : self.gen_opt.state_dict(),
         'loss' : self.gen_loss[-1]
         }, g_s)
 
         torch.save({
             'epoch' : epoch,
-            'model_state_dict' : self.disc.state_dict(),
+            'model_state_dict' : self.discriminator.state_dict(),
             'optimizer_state_dict' : self.disc_opt.state_dict(),
             'loss' : self.disc_loss[-1]
         }, d_s)
@@ -216,9 +217,9 @@ class Cond_Trainer(GAN_Trainer):
     def preprocessRealData(self, real_data):
         real, tag = real_data
 
-        tag = torch.functional.one_hot(tag, self.num_classes)
+        tag = torch.nn.functional.one_hot(tag, self.num_classes)
         img_vec_tag = tag[:,:,None,None]
-        img_vec_tag = img_vec_tag.repeat(1,1, real.shape[1], real.shape[2])
+        img_vec_tag = img_vec_tag.repeat(1,1, real.shape[2], real.shape[3])
         img_vec_tag = torch.cat((real.float(), img_vec_tag.float()),1)
 
         return img_vec_tag, tag
@@ -242,13 +243,15 @@ class Cond_Trainer(GAN_Trainer):
 
         real, tag = real
 
-        d = [0,0,0,0]
-        d[0] = Constants.BATCH_SIZE
-        d[1], d[2], d[3] = self.generator.getInDim()
-        noise = torch.randn((d[0], d[1], d[2], d[3]))
+        real = real.to(self.device)
+        tag  = tag.to(self.device)
+
+        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getInDim())).to(self.device)
 
         img_vec_tag = tag[:,:,None,None]
-        img_vec_tag = img_vec_tag.repeat(1,1, real.shape[1], real.shape[2])
+        img_vec_tag = img_vec_tag.repeat(1, 1, real.shape[2], real.shape[3])
+        print(img_vec_tag.shape)
+        print(noise.shape)
         noise_tag = torch.cat((noise.float(), img_vec_tag.float()),1)
 
         fake = self.generator(noise_tag)
@@ -269,10 +272,10 @@ class Cond_Trainer(GAN_Trainer):
 
         real, tag = real
 
-        d = [0,0,0,0]
-        d[0] = Constants.BATCH_SIZE
-        d[1], d[2], d[3] = self.generator.getInDim()
-        noise = torch.randn((d[0], d[1], d[2], d[3]))
+        real = real.to(self.device)
+        tag  = tag.to(self.device)
+
+        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getInDim())).to(self.device)
 
         img_vec_tag = tag[:,:,None,None]
         img_vec_tag = img_vec_tag.repeat(1,1, real.shape[1], real.shape[2])
@@ -418,7 +421,7 @@ class Style_Prog_Trainer:
         fake_pred = self.disc(fake)
         real_pred = self.disc(real_data)
 
-        loss = self.criterion.gen_loss(real_pred, fake_pred)
+        loss = self.criterion.gen_loss(real_data, fake, real_pred, fake_pred)
 
         self.check_training_params(self.gen, True)
         self.check_training_params(self.disc, False)
@@ -448,7 +451,7 @@ class Style_Prog_Trainer:
 
         real_pred = self.disc(real_data)
 
-        perdidasTotales = self.criterion.dis_loss(real_pred, fake_pred)
+        perdidasTotales = self.criterion.dis_loss(real_data, fake,real_pred, fake_pred)
 
         self.disc_opt.zero_grad()
         perdidasTotales.backward()
@@ -483,8 +486,8 @@ class Style_Prog_Trainer:
                 self.gen.increaseAlfa(self.alfa_step)
                 self.disc.increaseAlfa(self.alfa_step)
         
-            if self.iter % self.save_step == 0:
-                self.saveCheckpoint(self.resdir, self.gen, self.disc, self.gen_opt, self.disc_opt, self.gen_loss[-1], self.disc_loss[-1], ep, self.gen.getDepth(), self.gen.getAlfa())
+            if self.iter % self.save_step == 0 and self.iter > 0:
+                self.saveCheckpoint(ep)
 
 
     def train_for_epochs(self, epochs_for_depth):
@@ -529,6 +532,11 @@ class Style_Prog_Trainer:
         os.chdir('..')
 
         plt.clf()
+    
+
+    def save_results(self, real, generated):
+        ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.resdir, save = True, show = False)
+        ImageFunctions.tensor_as_image(real, self.iter, "real", self.resdir, save = True, show = False) 
           
 
     def saveCheckpoint(self, epoch):
@@ -557,9 +565,9 @@ class Style_Prog_Trainer:
 
         os.chdir('..')
 
-class StyleGANLoss():
+class HingeRelativisticLoss():
     
-    def dis_loss(self, real_pred, fake_pred):
+    def dis_loss(self, real_sample, fake_sample, real_pred, fake_pred):
 
         real_fake_d = real_pred - torch.mean(fake_pred)
         fake_real_d = fake_pred - torch.mean(real_pred)
@@ -569,7 +577,7 @@ class StyleGANLoss():
 
         return (t1 + t2)
 
-    def gen_loss(self, real_pred, fake_pred):
+    def gen_loss(self, real_sample, fake_sample, real_pred, fake_pred):
 
         real_fake_d = real_pred - torch.mean(fake_pred)
         fake_real_d = fake_pred - torch.mean(real_pred)
@@ -578,3 +586,31 @@ class StyleGANLoss():
         t2 = torch.mean(nn.ReLU()(1-fake_real_d))
 
         return (t1 + t2)
+
+class LogisticLoss():
+
+    def __init__(self, disc, gamma=10.0):
+        self.gamma = gamma
+        self.disc  = disc
+
+    def dis_loss(self, real_sample, fake_sample, real_pred, fake_pred):
+
+        real_sample = torch.autograd.Variable(real_sample, requires_grad=True)
+        real_log = self.disc(real_sample)
+
+        loss = torch.mean(nn.Softplus()(fake_pred)) + torch.mean(nn.Softplus()(-real_pred))
+
+        r_gradients = torch.autograd.grad(outputs=real_log, inputs=real_sample, 
+        grad_outputs=torch.ones(real_log.size()).to(real_log.device), 
+        create_graph=True, retain_graph=True)[0].view(real_sample.size(0), -1)
+
+        r_gradients = r_gradients.view(real_sample.size(0), -1)
+
+        penalty = torch.sum(torch.mul(r_gradients, r_gradients)) * (self.gamma * 0.5)
+
+        loss = loss + penalty
+
+        return loss
+
+    def gen_loss(self, real_sample, fake_sample, real_pred, fake_pred):
+        return torch.mean(nn.Softplus()(-fake_pred))

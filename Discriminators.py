@@ -14,7 +14,10 @@ class DiscriminadorCondicional(nn.Module):
     self.discriminador = nn.Sequential(
         self.generar_bloque_discriminador(inChan, hiddenDim),
         self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2),
-        self.generar_bloque_discriminador(hiddenDim*2, inChan,ultimaCapa= True )
+        self.generar_bloque_discriminador(hiddenDim*2, hiddenDim * 4),
+        self.generar_bloque_discriminador(hiddenDim*4, hiddenDim * 8),
+        self.generar_bloque_discriminador(hiddenDim*8, hiddenDim * 16),
+        self.generar_bloque_discriminador(hiddenDim*16, inChan,ultimaCapa= True )
     )
 
   def generar_bloque_discriminador(self, inChan, outChan, kernel = 4, stride = 2, ultimaCapa = False):

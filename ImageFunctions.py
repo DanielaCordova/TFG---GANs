@@ -34,10 +34,10 @@ def ver_imagen(img, dataset, label):
     print('Label: ', dataset.classes[label], "("+str(label)+")")
     plt.imshow(img.permute(1, 2, 0))
 
-def getTransform():
+def getTransform(size):
     return transforms.Compose([
-    transforms.Resize(64),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Resize(size)
     ])
 
 def getDatasets(data_dir):
