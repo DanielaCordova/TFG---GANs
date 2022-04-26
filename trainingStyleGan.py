@@ -46,7 +46,7 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'prueba4'
+training_dir = 'trainingPaperLike-GenPaper-DiscNuestrov12'
 
 # Dataset
 
@@ -64,7 +64,7 @@ os.mkdir(training_dir)
 ## Va a subir (1/4231) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
 
 criterion = Training.LogisticLoss(disc, 10.0)
-n_epochs = [1,1,1,1,1]
+n_epochs = [4,4,4,4,64]
 display_step = int(67692/Constants.BATCH_SIZE) 
 increase_alfa_step = 8
 alfa_step = (1/(4*len(dataLoader))) * increase_alfa_step

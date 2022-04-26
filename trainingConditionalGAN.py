@@ -31,7 +31,7 @@ else:
 # Modulos
 
 disc = Discriminators.DiscriminadorCondicional(3,64)
-gen = Generators.GeneradorCondicional(64,131)
+gen = Generators.GeneradorCondicional(32,131)
 
 gen.train()
 disc.train()

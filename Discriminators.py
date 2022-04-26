@@ -219,7 +219,7 @@ class DiscriminadorPorBloques(nn.Module):
     self.inChan = inChan
     self.hiddenChan = hiddenChan
   
-    from_rgb_chan = [256, 512, 512, 512, 512]
+    from_rgb_chan = [512, 512, 512, 512, 512]
 
     self.downsampler = nn.AvgPool2d(4,2,1).to(device)
     self.blocks = nn.ModuleList()

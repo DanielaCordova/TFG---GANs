@@ -13,6 +13,7 @@ from tqdm.auto import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 def graph_GANS_losses(x, ejeX, title, dir, save, show):
 
@@ -236,6 +237,12 @@ class Cond_Trainer(GAN_Trainer):
 
     def check_per_batch(self, it):
         return
+
+    def get_InputVector_paraEtiquetar(self, etiquetas, numClases):
+        return F.one_hot(etiquetas,numClases) 
+
+    def combinarVectores(self, x, y):
+        return torch.cat((x.float(),y.float()), 1)
     
     def train_gen(self, real):
         self.enable_training(self.generator, True)
@@ -244,15 +251,15 @@ class Cond_Trainer(GAN_Trainer):
         real, tag = real
 
         real = real.to(self.device)
-        tag  = tag.to(self.device)
-
+        tag  = tag.to(self.device).view(-1)
         noise = torch.randn((Constants.BATCH_SIZE, self.generator.getInDim())).to(self.device)
 
-        img_vec_tag = tag[:,:,None,None]
-        img_vec_tag = img_vec_tag.repeat(1, 1, real.shape[2], real.shape[3])
-        print(img_vec_tag.shape)
-        print(noise.shape)
-        noise_tag = torch.cat((noise.float(), img_vec_tag.float()),1)
+        vecTag = self.get_InputVector_paraEtiquetar(tag, self.num_classes)
+        img_vec_tag = vecTag[:,:,None,None]
+        img_vec_tag = img_vec_tag.repeat(1,1,real.shape[2], real.shape[3])
+        vecTag = vecTag.view(Constants.BATCH_SIZE, -1)
+        print("VECTAG = " + str(vecTag.shape))
+        noise_tag = self.combinarVectores(noise, vecTag)
 
         fake = self.generator(noise_tag)
         fake_tag = torch.cat((fake.float(), img_vec_tag.float()),1)
@@ -277,12 +284,13 @@ class Cond_Trainer(GAN_Trainer):
 
         noise = torch.randn((Constants.BATCH_SIZE, self.generator.getInDim())).to(self.device)
 
-        img_vec_tag = tag[:,:,None,None]
-        img_vec_tag = img_vec_tag.repeat(1,1, real.shape[1], real.shape[2])
-        noise_tag = torch.cat((noise.float(), img_vec_tag.float()),1)
+        vecTag = self.get_InputVector_paraEtiquetar(tag, self.num_classes)
+        img_vec_tag = vecTag[:,:,None,None]
+        img_vec_tag = img_vec_tag.repeat(1,1,real.shape[2], real.shape[3])
+        noise_tag = self.combinarVectores(noise, vecTag)
 
         fake = self.generator(noise_tag)
-        fake_tag = torch.cat((fake.float(), img_vec_tag.float()),1)
+        fake_tag = self.combinarVectores(fake, img_vec_tag) 
 
         f_pred = self.discriminator(fake_tag)
         r_pred = self.discriminator(real)
