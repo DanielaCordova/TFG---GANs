@@ -9,31 +9,33 @@ import Blocks as bk
 
 class DiscriminadorCondicional(nn.Module):
 
-  def __init__(self, inChan=1, hiddenDim=64):
+  def __init__(self, device = 'cuda', inChan=1, hiddenDim=64):
     super(DiscriminadorCondicional, self).__init__()
-    self.discriminador = nn.Sequential(
-        self.generar_bloque_discriminador(inChan, hiddenDim),
-        self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2),
-        self.generar_bloque_discriminador(hiddenDim*2, hiddenDim * 4),
-        self.generar_bloque_discriminador(hiddenDim*4, hiddenDim * 8),
-        self.generar_bloque_discriminador(hiddenDim*8, hiddenDim * 16),
-        self.generar_bloque_discriminador(hiddenDim*16, inChan,ultimaCapa= True )
+    l = [self.generar_bloque_discriminador(inChan, hiddenDim, device= device),
+        self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2, device= device),
+        self.generar_bloque_discriminador(hiddenDim*2, hiddenDim * 4, device= device),
+        self.generar_bloque_discriminador(hiddenDim*4, inChan,device= device,ultimaCapa= True )]
+
+    self.discriminador = nn.ModuleList(
+        l
     )
 
-  def generar_bloque_discriminador(self, inChan, outChan, kernel = 4, stride = 2, ultimaCapa = False):
+  def generar_bloque_discriminador(self, inChan, outChan, device = 'cuda', kernel = 4, stride = 2, ultimaCapa = False):
     if ultimaCapa :
       return nn.Sequential(
-          nn.Conv2d(inChan, outChan, kernel, stride),
+          nn.Conv2d(inChan, outChan, kernel, stride).to(device),
       )
     else :
       return nn.Sequential(
-          nn.Conv2d(inChan, outChan, kernel, stride),
-          nn.BatchNorm2d(outChan),
-          nn.LeakyReLU(0.2, inplace = True),
+          nn.Conv2d(inChan, outChan, kernel, stride).to(device),
+          nn.BatchNorm2d(outChan).to(device),
+          nn.LeakyReLU(0.2, inplace = True).to(device),
       )
 
   def forward(self, image):
-    pred = self.discriminador(image)
+    for e in range(0, len(self.discriminador)):
+      image = self.discriminador[e](image)
+    pred = image
     return pred.view(len(pred), -1)
 
 ## Discriminador con mejoras aprendidas del libro
@@ -176,14 +178,14 @@ class BloqueDiscBloques(nn.Module):
 
     self.DSConv1 = bk.Conv2dPropia(inChan, inChan, 3,).to(device)
     self.DSConv2 = bk.Conv2DownPropia(inChan, outChan, 3).to(device)
-    #self.batchNorm = nn.BatchNorm2d(inChan).to(device)
     self.act1 = nn.LeakyReLU(0.2, True).to(device)
     self.act2 = nn.LeakyReLU(0.2, True).to(device)
+    self.blur = bk.BlurLayer(kernel=[1, 2, 1]).to(device)
   
   def forward(self, img):
     img = self.DSConv1(img)
     img = self.act1(img)
-    #img = self.batchNorm(img)
+    img = self.blur(img)
     img = self.DSConv2(img)
     img = self.act2(img)
     return img
@@ -194,7 +196,7 @@ class UltimoBloqueDiscBloques(nn.Module):
     inFeat = inChan * 4 * 4
     # print("INFEAT = " + str(inFeat))
     self.st    = bk.StddevLayer(4,1)
-    self.conv  = bk.Conv2dPropia(inChan+1, inChan, 1).to(device)
+    self.conv  = bk.Conv2dPropia(inChan, inChan, 1).to(device)
     self.act1  = nn.LeakyReLU(0.02, True).to(device)
     self.lin1  = cl.EqualizedLinear(inFeat, inChan).to(device)
     self.act2  = nn.LeakyReLU(0.02, True).to(device)
@@ -219,7 +221,7 @@ class DiscriminadorPorBloques(nn.Module):
     self.inChan = inChan
     self.hiddenChan = hiddenChan
   
-    from_rgb_chan = [512, 512, 512, 512, 512]
+    from_rgb_chan = [256, 512, 512, 512, 512, 512]
 
     self.downsampler = nn.AvgPool2d(4,2,1).to(device)
     self.blocks = nn.ModuleList()

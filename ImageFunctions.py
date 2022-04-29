@@ -118,7 +118,9 @@ class DataSetMix(Dataset):
         return len(self.imagenes)
 
     def __getitem__(self, index):
-        img = os.path.join(self.dirs[index % self.sizeeach], self.imagen)
+        img = os.path.join(self.dirs[index % self.sizeeach], self.imagenes[index % self.sizeeach][index])
         imagen = Image.open(img).convert("RGB")
         tensor = self.transform(imagen)
-        return tensor
+        return tensor, index % self.sizeeach
+
+

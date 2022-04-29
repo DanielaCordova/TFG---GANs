@@ -84,6 +84,7 @@ class GAN_Trainer:
         self.dis_plot_loss = []
         self.ejeX          = []
         self.act           = 0
+        self.iter          = 0
 
     @abstractclassmethod
     def preprocessRealData(self,real):
@@ -94,12 +95,15 @@ class GAN_Trainer:
         pass
 
     @abstractclassmethod
-    def check_per_batch(self, it):
+    def check_per_batch(self, real, fake, it):
         pass
 
     def epoch(self, ep):
         it = 0
         for real in tqdm(self.dataloader):
+            if real[0].shape[0] != Constants.BATCH_SIZE :
+                print(real[0].shape[0])
+                break
 
             real = self.preprocessRealData(real)
 
@@ -117,9 +121,9 @@ class GAN_Trainer:
                 self.save_results(real, generated)
         
             if self.checksave and self.iter % self.save_step == 0:
-                self.saveCheckpoint(self.resdir, self.gen, self.disc, self.gen_opt, self.disc_opt, self.gen_loss[-1], self.disc_loss[-1], ep)
+                self.saveCheckpoint(self.log_dir, self.generator, self.discriminator, self.gen_opt, self.disc_opt, self.gen_loss[-1], self.dis_loss[-1], ep)
 
-            self.check_per_batch(it)
+            self.check_per_batch(real, generated, it)
 
     @abstractclassmethod
     def train_gen(self, real_data):
@@ -142,8 +146,8 @@ class GAN_Trainer:
         pass
 
     def save_results(self, real, generated):
-        ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.resdir, save = True, show = False)
-        ImageFunctions.tensor_as_image(real, self.iter, "real", self.resdir, save = True, show = False) 
+        ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.log_dir, save = True, show = False)
+        ImageFunctions.tensor_as_image(real, self.iter, "real", self.log_dir, save = True, show = False) 
 
     @abstractclassmethod
     def saveCheckpoint(self):
@@ -210,7 +214,7 @@ class Cond_Trainer(GAN_Trainer):
             'epoch' : epoch,
             'model_state_dict' : self.discriminator.state_dict(),
             'optimizer_state_dict' : self.disc_opt.state_dict(),
-            'loss' : self.disc_loss[-1]
+            'loss' : self.dis_loss[-1]
         }, d_s)
 
         os.chdir('..')
@@ -235,7 +239,7 @@ class Cond_Trainer(GAN_Trainer):
         else:
             self.dis_loss.append(total_loss)
 
-    def check_per_batch(self, it):
+    def check_per_batch(self, real, generated, it):
         return
 
     def get_InputVector_paraEtiquetar(self, etiquetas, numClases):
@@ -250,18 +254,17 @@ class Cond_Trainer(GAN_Trainer):
 
         real, tag = real
 
-        real = real.to(self.device)
-        tag  = tag.to(self.device).view(-1)
-        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getInDim())).to(self.device)
 
-        vecTag = self.get_InputVector_paraEtiquetar(tag, self.num_classes)
-        img_vec_tag = vecTag[:,:,None,None]
-        img_vec_tag = img_vec_tag.repeat(1,1,real.shape[2], real.shape[3])
-        vecTag = vecTag.view(Constants.BATCH_SIZE, -1)
-        print("VECTAG = " + str(vecTag.shape))
-        noise_tag = self.combinarVectores(noise, vecTag)
+        real = real.to(self.device)
+        tag  = tag.to(self.device)
+        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getNoiseDim())).to(self.device)
+
+        noise_tag = self.combinarVectores(noise, tag)
 
         fake = self.generator(noise_tag)
+
+        img_vec_tag = tag[:,:,None,None]
+        img_vec_tag = img_vec_tag.repeat(1,1,fake.shape[2], fake.shape[3])
         fake_tag = torch.cat((fake.float(), img_vec_tag.float()),1)
         f_pred = self.discriminator(fake_tag)
         
@@ -281,15 +284,17 @@ class Cond_Trainer(GAN_Trainer):
 
         real = real.to(self.device)
         tag  = tag.to(self.device)
+        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getNoiseDim())).to(self.device)
 
-        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getInDim())).to(self.device)
-
-        vecTag = self.get_InputVector_paraEtiquetar(tag, self.num_classes)
-        img_vec_tag = vecTag[:,:,None,None]
-        img_vec_tag = img_vec_tag.repeat(1,1,real.shape[2], real.shape[3])
-        noise_tag = self.combinarVectores(noise, vecTag)
+        noise_tag = self.combinarVectores(noise, tag)
 
         fake = self.generator(noise_tag)
+
+        img_vec_tag = tag[:,:,None,None]
+        img_vec_tag = img_vec_tag.repeat(1,1,fake.shape[2], fake.shape[3])
+        fake_tag = torch.cat((fake.float(), img_vec_tag.float()),1)
+        f_pred = self.discriminator(fake_tag)
+
         fake_tag = self.combinarVectores(fake, img_vec_tag) 
 
         f_pred = self.discriminator(fake_tag)
@@ -309,23 +314,54 @@ class Cond_Trainer(GAN_Trainer):
         for e in range(0, n_epochs):
             self.epoch(e + self.act)
             self.act += 1
+
+    def epoch(self, ep):
+        it = 0
+        for real in tqdm(self.dataloader):
+            if real[0].shape[0] != Constants.BATCH_SIZE :
+                print(real[0].shape[0])
+                break
+            
+            real2 = real
+            real = self.preprocessRealData(real)
+
+            g_loss, generated = self.train_gen(real)
+            t_loss = self.train_disc(real)
+
+            self.gen_loss.append(g_loss)
+            self.appendDiscLoss(t_loss)
+
+            self.iter = self.iter + 1
+            it = it + 1
+
+            real, tag = real2
+            if self.iter % self.log_step == 0 and self.iter > 0 :
+                self.plot_losses()
+                self.save_results(real, generated)
+        
+            if self.checksave and self.iter % self.save_step == 0:
+                self.saveCheckpoint(ep)
+
+        self.check_per_batch(real, generated, it)
     
     def plot_losses(self):
         
-        self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step:])/self.log_step)
-        self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
+        self.dis_plot_loss.append(sum(self.dis_loss[-self.log_step:])/self.log_step)
+        self.gen_plot_loss.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
 
         if self.verb :
-            self.dis_fake_loss_plot.append(sum(self.dis_fake_loss[-self.log_step])/self.log_step)
-            self.dis_real_loss_plot.append(sum(self.dis_real_loss[-self.log_step])/self.log_step)
+            l1 = sum(self.dis_fake_loss[-self.log_step:])/self.log_step
+            l2 = sum(self.dis_real_loss[-self.log_step:])/self.log_step
+            self.dis_fake_loss_plot.append(l1)
+            self.dis_real_loss_plot.append(l2)
 
-        title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
+        title = "Gen Loss: " + str(self.gen_plot_loss[-1]) + " Disc Loss: " + str(self.dis_plot_loss[-1])
         print(title)
         
         self.ejeX.append(self.iter)
         arEjeX = np.array(self.ejeX)
-        plt.plot(arEjeX, np.array(self.gen_loss_plot), label = "Gen Loss")
-        plt.plot(arEjeX, np.array(self.disc_loss_plot), label = "Disc Loss")
+        plt.plot(arEjeX, np.array(self.gen_plot_loss), label = "Gen Loss")
+        plt.plot(arEjeX, np.array(self.dis_plot_loss), label = "Disc Loss")
 
         if self.verb :
             plt.plot(arEjeX, np.array(self.dis_fake_loss_plot), label = "Disc Fake Loss")
@@ -334,7 +370,7 @@ class Cond_Trainer(GAN_Trainer):
         plt.title(title)
         plt.legend()
 
-        os.chdir(self.resdir)
+        os.chdir(self.log_dir)
         plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
         os.chdir('..')
 
@@ -470,7 +506,9 @@ class Style_Prog_Trainer:
     def epoch(self, ep):
         it = 0
         for real in tqdm(self.dataloader):
-
+            if real.shape[0] != Constants.BATCH_SIZE :
+                print(real.shape[0])
+                break
             real = real.to(self.device)
 
             in_size = self.disc.getinSize()

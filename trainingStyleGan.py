@@ -46,7 +46,7 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'trainingPaperLike-GenPaper-DiscNuestrov12'
+training_dir = 'Prueba3232'
 
 # Dataset
 
@@ -63,12 +63,12 @@ os.mkdir(training_dir)
 ## Deberia subir (1/4231) el alfa por cada batch = 1 / num_batches
 ## Va a subir (1/4231) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
 
-criterion = Training.LogisticLoss(disc, 10.0)
+criterion = Training.HingeRelativisticLoss()
 n_epochs = [4,4,4,4,64]
 display_step = int(67692/Constants.BATCH_SIZE) 
 increase_alfa_step = 8
 alfa_step = (1/(4*len(dataLoader))) * increase_alfa_step
-checkpoint_step = 10000
+checkpoint_step = int(67692/Constants.BATCH_SIZE)
 
 trainer = Training.Style_Prog_Trainer(dataLoader, gen, disc, criterion, training_dir, display_step, True, True, increase_alfa_step, alfa_step, 'cuda', True, checkpoint_step
 ,load, load_folder, gen_load, disc_load)

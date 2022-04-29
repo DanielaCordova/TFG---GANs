@@ -29,9 +29,8 @@ else:
     load = False
 
 # Modulos
-
-disc = Discriminators.DiscriminadorCondicional(3,64)
-gen = Generators.GeneradorCondicional(32,131)
+disc = Discriminators.DiscriminadorCondicional('cuda',18,64)
+gen = Generators.GeneradorCondicional(64,15)
 
 gen.train()
 disc.train()
@@ -46,7 +45,7 @@ training_dir = 'ConditionalTraining'
 
 # Dataset
 
-ds = torch.load('preprocessedCondDataset.pt')
+ds = torch.load('preprocessed15ClassesCondDataset.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
@@ -60,9 +59,9 @@ os.mkdir(training_dir)
 ## Va a subir (1/4231) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
 
 criterion = nn.BCEWithLogitsLoss()
-n_epochs = 300
-display_step = int(67692/Constants.BATCH_SIZE) 
-checkpoint_step = 10000
+n_epochs = 100
+display_step = int(7230/Constants.BATCH_SIZE) 
+checkpoint_step = int(7230/Constants.BATCH_SIZE) 
 
-trainer = Training.Cond_Trainer(dataLoader, gen, disc, criterion,display_step, training_dir, 131, 'cuda', True, True, checkpoint_step)
+trainer = Training.Cond_Trainer(dataLoader, gen, disc, criterion,display_step, training_dir, 15, 'cuda', True, True, checkpoint_step)
 trainer.train_for_epochs(n_epochs)
