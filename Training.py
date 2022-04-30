@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import time
 
 def graph_GANS_losses(x, ejeX, title, dir, save, show):
 
@@ -59,7 +60,7 @@ def saveCheckpoint(dir, gen, disc, gen_opt, disc_opt, gen_loss, disc_loss, epoch
 
 class GAN_Trainer:
     def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, checksave = False, save_step = None, load = False, 
-    load_dir = None, gen_load = None, disc_load = None, device = 'cuda'):
+    load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs = False, device = 'cuda'):
         self.device        = device
         self.dataloader    = dataloader
         self.generator     = generator
@@ -68,6 +69,8 @@ class GAN_Trainer:
         self.log_step      = log_step
         self.log_dir       = log_dir
         self.checksave     = checksave
+        self.time_epochs   = time_epochs
+        self.time_steps    = time_steps
         self.gen_opt = torch.optim.Adam(self.generator.parameters(), lr=Constants.LR)
         self.disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=Constants.LR)
         if checksave :
@@ -85,6 +88,12 @@ class GAN_Trainer:
         self.ejeX          = []
         self.act           = 0
         self.iter          = 0
+        if time_steps :
+            self.step_times    = []
+            self.num_steps     = []
+        if time_epochs :
+            self.epoch_times   = []
+            self.num_epochs    = []
 
     @abstractclassmethod
     def preprocessRealData(self,real):
@@ -119,11 +128,17 @@ class GAN_Trainer:
             if self.iter % self.log_step == 0 and self.iter > 0 :
                 self.plot_losses()
                 self.save_results(real, generated)
+                
+                if self.time_steps:
+                    self.plot_step_time()
         
             if self.checksave and self.iter % self.save_step == 0:
                 self.saveCheckpoint(self.log_dir, self.generator, self.discriminator, self.gen_opt, self.disc_opt, self.gen_loss[-1], self.dis_loss[-1], ep)
 
             self.check_per_batch(real, generated, it)
+        
+        if self.time_epochs:
+            self.plot_epoch_time()
 
     @abstractclassmethod
     def train_gen(self, real_data):
@@ -160,12 +175,52 @@ class GAN_Trainer:
     def check_training_params(self, model, flag):
         for p in model.parameters():
             assert(p.requires_grad == flag)
+        
+    def plot_epoch_time(self):
+        epoch_time = (time.time() - self.initial__time)
+        self.epoch_times.append(epoch_time)
+        self.num_epochs.append(self.act)
+
+        title = str(self.epoch_times[-1]) + " seconds taken"
+        print(title)
+
+        plt.plot(self.num_epochs,self.epoch_times, label="Epoch Time")
+        
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.log_dir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.act) + " epoch_times" + '.svg')
+        os.chdir('..')
+
+        plt.clf()
+        
+    def plot_step_time(self):
+        
+        step_time = (time.time() - self.initial__time)
+        self.step_times.append(step_time)
+        self.num_steps.append(self.iter)
+
+        title = str(self.step_times[-1]) + " seconds to take " + str(self.iter) + " steps"
+        print(title)
+        
+        #Time visualization
+
+        plt.plot(self.num_steps, self.step_times, label="Step Time")
+        
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.log_dir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + " step_times" + '.svg')
+        os.chdir('..')
+
+        plt.clf()
 
 class Cond_Trainer(GAN_Trainer):
-    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, num_classes, device = 'cuda', verb = False, checksave = False, save_step = None, load = False
-    , load_dir = None, gen_load = None, disc_load = None):
+    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, num_classes, device = 'cuda', verb = False, checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs = False):
 
-        super().__init__(dataloader, generator, discriminator, criterion, log_step, log_dir, checksave, save_step, load, load_dir, gen_load, disc_load, device = device)
+        super().__init__(dataloader, generator, discriminator, criterion, log_step, log_dir, checksave, save_step, load, load_dir, gen_load, disc_load, time_steps, time_epochs, device = device)
         self.verb          = verb
         self.num_classes   = num_classes
 
@@ -311,6 +366,7 @@ class Cond_Trainer(GAN_Trainer):
         return total_loss.item(), real_loss.item(), fake_loss.item()
 
     def train_for_epochs(self, n_epochs):
+        self.initial__time = time.time()
         for e in range(0, n_epochs):
             self.epoch(e + self.act)
             self.act += 1
@@ -338,9 +394,16 @@ class Cond_Trainer(GAN_Trainer):
             if self.iter % self.log_step == 0 and self.iter > 0 :
                 self.plot_losses()
                 self.save_results(real, generated)
+            
+                if self.time_steps:
+                    self.plot_step_time()
         
             if self.checksave and self.iter % self.save_step == 0:
                 self.saveCheckpoint(ep)
+        
+        
+        if self.time_epochs:
+            self.plot_epoch_time()
 
         self.check_per_batch(real, generated, it)
     
@@ -379,7 +442,7 @@ class Cond_Trainer(GAN_Trainer):
 
 class Style_Prog_Trainer:
     def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, increase_alfa_step,alfa_step, device, 
-    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None):
+    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs =     False):
         
         self.disc = discriminator
         self.gen  = generator
@@ -406,6 +469,13 @@ class Style_Prog_Trainer:
         self.ejeX = []
 
         self.act_epoch = 0
+        
+        if time_steps :
+            self.step_times    = []
+            self.num_steps     = []
+        if time_epochs :
+            self.epoch_times   = []
+            self.num_epochs    = []
 
         if load :
             os.chdir(load_dir)
@@ -527,6 +597,8 @@ class Style_Prog_Trainer:
             if self.iter % self.log_step == 0 and self.iter > 0 :
                 self.plot_losses()
                 self.save_results(real, generated)
+                if self.time_steps:
+                    self.plot_step_time()
 
             if self.iter % self.increase_alfa_step == 0 and self.iter > 0:
                 self.gen.increaseAlfa(self.alfa_step)
@@ -534,6 +606,9 @@ class Style_Prog_Trainer:
         
             if self.iter % self.save_step == 0 and self.iter > 0:
                 self.saveCheckpoint(ep)
+                
+        if self.time_epochs:
+            self.plot_epoch_time()
 
 
     def train_for_epochs(self, epochs_for_depth):
@@ -548,6 +623,7 @@ class Style_Prog_Trainer:
         epochs_for_depth[ini] = epochs_for_depth[ini] - self.act_epoch
 
         for i in range(ini, len(epochs_for_depth)):
+            self.initial__time = time.time()
             for _ in range(0, epochs_for_depth[i]):
                 self.epoch(num_ep)
                 num_ep = num_ep + 1
@@ -610,6 +686,47 @@ class Style_Prog_Trainer:
         }, d_s)
 
         os.chdir('..')
+        
+    def plot_epoch_time(self):
+        epoch_time = (time.time() - self.initial__time)
+        self.epoch_times.append(epoch_time)
+        self.num_epochs.append(self.num_ep)
+
+        title = str(self.epoch_times[-1]) + " seconds taken"
+        print(title)
+
+        plt.plot(self.num_epochs,self.epoch_times, label="Epoch Time")
+        
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.resdir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.num_ep) + "epoch_times" + '.svg')
+        os.chdir('..')
+
+        plt.clf()
+        
+    def plot_step_time(self):
+        
+        step_time = (time.time() - self.initial__time)
+        self.step_times.append(step_time)
+        self.num_steps.append(self.iter)
+
+        title = str(self.step_times[-1]) + " seconds to take " + str(self.iter) + " steps"
+        print(title)
+        
+        #Time visualization
+
+        plt.plot(self.num_steps, self.step_times, label="Step Time")
+        
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.resdir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + "step_times" + '.svg')
+        os.chdir('..')
+
+        plt.clf()
 
 class HingeRelativisticLoss():
     
