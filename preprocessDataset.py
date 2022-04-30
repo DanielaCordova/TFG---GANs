@@ -6,11 +6,8 @@ import torch
 
 root_path = 'fruits-360_dataset/fruits-360/Training'
 
-classes = ['/Clementine', '/Avocado', '/Banana', '/Cocos', '/Eggplant' , '/Kaki' , '/Kiwi', '/Lemon', '/Orange', '/Pear', '/Limes', '/Raspberry', '/Watermelon', '/Mango', '/Maracuja']
-size = 55
+size = 64
 
-dataSets = [ImageFunctions.DataSetCarpeta(root_path + e, ImageFunctions.getTransform(size), t) for t,e in enumerate(classes)]
+ds = ImageFolder(root_path, ImageFunctions.getTransform(size))
 
-ds = torch.utils.data.ConcatDataset(dataSets)
-
-torch.save(ds, 'preprocessed15ClassesCondDataset.pt')
+torch.save(ds, 'preprocessedDataset.pt')
