@@ -10,4 +10,6 @@ size = 64
 
 ds = ImageFolder(root_path, ImageFunctions.getTransform(size))
 
-torch.save(ds, 'preprocessedDataset.pt')
+ds_2 = [img for img,tag in ds]
+
+torch.save(ds_2, 'preprocessedDataset.pt')
