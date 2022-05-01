@@ -154,6 +154,10 @@ class Conv2dPropia(nn.Module):
         bias = self.bias
         if bias is not None:
             bias = bias * self.b_mul
+        a, b, c, d = x.shape
+        if(b%2!=0):
+            m = torch.nn.Conv2d(b, b-1, 1).to("cuda")
+            x = m(x)
         x = F.conv2d(x, self.weight * self.w_mul, None, padding=self.kernel_size // 2)
 
         if bias is not None:

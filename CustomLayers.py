@@ -320,6 +320,7 @@ class StddevLayer(nn.Module):
         y = y.mean([3, 4, 5], keepdim=True).squeeze(3)  # don't keep the meaned-out channels
         y = y.expand(group_size, -1, -1, h, w).clone().reshape(b, self.num_new_features, h, w)
         z = torch.cat([x, y], dim=1)
+
         return z
 
 

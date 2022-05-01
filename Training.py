@@ -2,6 +2,8 @@
 from abc import abstractclassmethod
 from venv import create
 import tqdm
+from torch.utils.data import DataLoader
+
 import Constants
 import StyleComponents
 import torch
@@ -60,7 +62,7 @@ def saveCheckpoint(dir, gen, disc, gen_opt, disc_opt, gen_loss, disc_loss, epoch
 
 class GAN_Trainer:
     def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, checksave = False, save_step = None, load = False, 
-    load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs = False, device = 'cuda'):
+    load_dir = None, gen_load = None, disc_load = None, time_steps = True, time_epochs = True, device = 'cuda'):
         self.device        = device
         self.dataloader    = dataloader
         self.generator     = generator
@@ -442,7 +444,7 @@ class Cond_Trainer(GAN_Trainer):
 
 class Style_Prog_Trainer:
     def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, increase_alfa_step,alfa_step, device, 
-    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs =     False):
+    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = True, time_epochs = True):
         
         self.disc = discriminator
         self.gen  = generator
@@ -597,8 +599,8 @@ class Style_Prog_Trainer:
             if self.iter % self.log_step == 0 and self.iter > 0 :
                 self.plot_losses()
                 self.save_results(real, generated)
-                if self.time_steps:
-                    self.plot_step_time()
+
+                self.plot_step_time()
 
             if self.iter % self.increase_alfa_step == 0 and self.iter > 0:
                 self.gen.increaseAlfa(self.alfa_step)
@@ -607,29 +609,31 @@ class Style_Prog_Trainer:
             if self.iter % self.save_step == 0 and self.iter > 0:
                 self.saveCheckpoint(ep)
                 
-        if self.time_epochs:
-            self.plot_epoch_time()
+        self.plot_epoch_time()
 
 
-    def train_for_epochs(self, epochs_for_depth):
+    def train_for_epochs(self, epochs_for_depth, ds):
         ini = 0
-        num_ep = 0
+        self.num_ep = 0
         while ini < len(epochs_for_depth) and self.act_epoch > epochs_for_depth[ini]  :
-            num_ep = num_ep + epochs_for_depth[ini]
+            self.num_ep = self.num_ep + epochs_for_depth[ini]
             self.act_epoch = self.act_epoch - epochs_for_depth[ini]
             i = i + 1
 
-        num_ep = num_ep + epochs_for_depth[ini] - self.act_epoch
+        num_ep = self.num_ep + epochs_for_depth[ini] - self.act_epoch
         epochs_for_depth[ini] = epochs_for_depth[ini] - self.act_epoch
 
         for i in range(ini, len(epochs_for_depth)):
             self.initial__time = time.time()
+            batch_sizes = [32, 32, 32, 16, 8, 4, 2, 1, 1]
+            self.dataloader = DataLoader(ds, batch_sizes[i], shuffle=True)
             for _ in range(0, epochs_for_depth[i]):
-                self.epoch(num_ep)
-                num_ep = num_ep + 1
+                self.epoch(self.num_ep)
+                self.num_ep = self.num_ep + 1
             
             self.gen.increaseDepth()
             self.disc.increaseDepth()
+
             print("Tamanio = " + str(self.disc.getinSize()))
 
 

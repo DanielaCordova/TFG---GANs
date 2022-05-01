@@ -51,8 +51,8 @@ training_dir = 'Prueba3232'
 # Dataset
 
 ds = torch.load('preprocessedDataset.pt')
-
-dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
+batch_sizes = [32, 32, 32, 16, 8, 4, 2, 1, 1]
+dataLoader = DataLoader(ds, 32, shuffle=True)
 
 os.mkdir(training_dir)
 
@@ -64,7 +64,7 @@ os.mkdir(training_dir)
 ## Va a subir (1/4231) * 25 el alfa por cada 25 batches = 1 / num_batches * increase_step
 
 criterion = Training.HingeRelativisticLoss()
-n_epochs = [4,4,4,4,64]
+n_epochs = [4, 4, 4, 4, 8, 16, 32, 64, 64]
 display_step = int(67692/Constants.BATCH_SIZE) 
 increase_alfa_step = 8
 alfa_step = (1/(4*len(dataLoader))) * increase_alfa_step
@@ -73,4 +73,4 @@ checkpoint_step = int(67692/Constants.BATCH_SIZE)
 trainer = Training.Style_Prog_Trainer(dataLoader, gen, disc, criterion, training_dir, display_step, True, True, increase_alfa_step, alfa_step, 'cuda', True, checkpoint_step
 ,load, load_folder, gen_load, disc_load)
 
-trainer.train_for_epochs(n_epochs)
+trainer.train_for_epochs(n_epochs, ds)
