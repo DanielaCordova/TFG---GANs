@@ -46,7 +46,7 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'Prueba3232'
+training_dir = 'BS_dif_prueba4'
 
 # Dataset
 
@@ -70,7 +70,7 @@ increase_alfa_step = 8
 alfa_step = (1/(4*len(dataLoader))) * increase_alfa_step
 checkpoint_step = int(67692/Constants.BATCH_SIZE)
 
-trainer = Training.Style_Prog_Trainer(dataLoader, gen, disc, criterion, training_dir, display_step, True, True, increase_alfa_step, alfa_step, 'cuda', True, checkpoint_step
-,load, load_folder, gen_load, disc_load)
+trainer = Training.Style_Prog_Trainer(ds, gen, disc, criterion, training_dir, True, True,'cuda', True,
+load, load_folder, gen_load, disc_load, time_steps = False, time_epochs = False)
 
-trainer.train_for_epochs(n_epochs, ds)
+trainer.train_for_epochs(n_epochs, batch_sizes)

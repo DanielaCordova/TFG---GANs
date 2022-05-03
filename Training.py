@@ -443,8 +443,8 @@ class Cond_Trainer(GAN_Trainer):
         
 
 class Style_Prog_Trainer:
-    def __init__(self, dataloader, generator, discriminator, criterion, dir, log_step, verb, prog, increase_alfa_step,alfa_step, device, 
-    checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = True, time_epochs = True):
+    def __init__(self, dataset, generator, discriminator, criterion, dir, verb, prog, device, 
+    checksave = False, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = True, time_epochs = True):
         
         self.disc = discriminator
         self.gen  = generator
@@ -452,10 +452,10 @@ class Style_Prog_Trainer:
 
         self.device = device
 
-        self.dataloader = dataloader
+        self.dataset = dataset
 
         self.resdir = dir
-        self.log_step = log_step
+        self.log_step = 0
 
         self.iter = 0
 
@@ -502,11 +502,11 @@ class Style_Prog_Trainer:
             os.chdir('..')
 
         if checksave:
-            self.save_step = save_step
+            self.save_step = 0
 
         if prog :
-            self.increase_alfa_step = increase_alfa_step
-            self.alfa_step = alfa_step
+            self.increase_alfa_step = 0
+            self.alfa_step = 0
             self.prog = prog
         else:
             self.prog = False
@@ -578,9 +578,9 @@ class Style_Prog_Trainer:
     def epoch(self, ep):
         it = 0
         for real in tqdm(self.dataloader):
-            if real.shape[0] != Constants.BATCH_SIZE :
-                print(real.shape[0])
+            if real.shape[0] !=  self.batch_size:
                 break
+
             real = real.to(self.device)
 
             in_size = self.disc.getinSize()
@@ -612,7 +612,7 @@ class Style_Prog_Trainer:
         self.plot_epoch_time()
 
 
-    def train_for_epochs(self, epochs_for_depth, ds):
+    def train_for_epochs(self, epochs_for_depth, batch_size_for_depth):
         ini = 0
         self.num_ep = 0
         while ini < len(epochs_for_depth) and self.act_epoch > epochs_for_depth[ini]  :
@@ -625,8 +625,21 @@ class Style_Prog_Trainer:
 
         for i in range(ini, len(epochs_for_depth)):
             self.initial__time = time.time()
-            batch_sizes = [32, 32, 32, 16, 8, 4, 2, 1, 1]
-            self.dataloader = DataLoader(ds, batch_sizes[i], shuffle=True)
+            self.batch_size = batch_size_for_depth[i]
+            self.dataloader = DataLoader(self.dataset, self.batch_size, shuffle = True)
+            self.display_step = int(len(self.dataset)/self.batch_size)
+            self.increase_alfa_step = 8
+            self.alfa_step = (1 / (epochs_for_depth[i] * len(self.dataloader))) * self.increase_alfa_step
+            self.log_step = int(len(self.dataset) / self.batch_size)
+            self.display_step = int(len(self.dataset)/ self.batch_size)
+            self.save_step = int(len(self.dataset)/ self.batch_size)
+
+            print(" ## Training data for size {} ".format(self.disc.getinSize()))
+            print("      Epochs for depth {} = {}".format(i, epochs_for_depth[i]))
+            print("      Batch size for depth {} = {}".format(i, batch_size_for_depth[i]))
+            print("      Increase_alfa_step for depth {} = {}".format(i, self.increase_alfa_step))
+            print("      Alfa step for depth {} = {}".format(i, self.alfa_step))
+
             for _ in range(0, epochs_for_depth[i]):
                 self.epoch(self.num_ep)
                 self.num_ep = self.num_ep + 1
