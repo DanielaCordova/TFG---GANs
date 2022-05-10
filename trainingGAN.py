@@ -51,8 +51,8 @@ dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
 criterion = nn.BCEWithLogitsLoss()
 n_epochs = 100
-display_step = int(2972/Constants.BATCH_SIZE)
-checkpoint_step = int(2972/Constants.BATCH_SIZE)
+display_step = int(5000/Constants.BATCH_SIZE)
+checkpoint_step = int(5000/Constants.BATCH_SIZE)
 
 trainer = Training.Normal_Trainer(dataLoader, gen, disc, criterion,display_step, training_dir, 'cuda', True, True, checkpoint_step, time_steps = True, time_epochs = True)
 trainer.train_for_epochs(n_epochs)
