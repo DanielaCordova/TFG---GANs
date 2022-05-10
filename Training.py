@@ -218,6 +218,193 @@ class GAN_Trainer:
         os.chdir('..')
 
         plt.clf()
+        
+        
+class Normal_Trainer(GAN_Trainer):
+    def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, device = 'cuda', verb = False, checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs = False):
+
+        super().__init__(dataloader, generator, discriminator, criterion, log_step, log_dir, checksave, save_step, load, load_dir, gen_load, disc_load, time_steps, time_epochs, device = device)
+        self.verb          = verb
+
+        if verb :
+            self.dis_fake_loss_plot = []
+            self.dis_real_loss_plot = []
+            self.dis_real_loss      = []
+            self.dis_fake_loss      = []
+        
+        if load :
+            self.load_checkpoint()
+    
+    def load_checkpoint(self):
+        os.chdir(self.load_dir)
+
+        c_g = torch.load(self.gen_load)
+        c_d = torch.load(self.disc_load)
+
+        self.act = c_d['epoch']
+
+        self.discriminator.load_state_dict(c_d['model_state_dict'])
+        self.disc_opt.load_state_dict(c_d['optimizer_state_dict'])
+        self.dis_loss.append( c_d['loss'] )
+
+
+        self.gen.load_state_dict(c_g['model_state_dict'])
+        self.gen_opt.load_state_dict(c_g['optimizer_state_dict'])
+        self.gen_loss.append( c_g['loss'] )
+
+        os.chdir('..')
+
+    def saveCheckpoint(self, epoch):
+        os.chdir(self.log_dir)
+
+        g_s = 'gen_' + str(epoch) + '.tar'
+        d_s = 'disc_' + str(epoch) + '.tar'
+
+        torch.save({
+        'epoch' : epoch,
+        'model_state_dict' : self.generator.state_dict(), 
+        'optimizer_state_dict' : self.gen_opt.state_dict(),
+        'loss' : self.gen_loss[-1]
+        }, g_s)
+
+        torch.save({
+            'epoch' : epoch,
+            'model_state_dict' : self.discriminator.state_dict(),
+            'optimizer_state_dict' : self.disc_opt.state_dict(),
+            'loss' : self.dis_loss[-1]
+        }, d_s)
+
+        os.chdir('..')
+
+    def appendDiscLoss(self, discLoss):
+        
+        if self.verb:
+            total_loss , real_loss , fake_loss = discLoss
+            self.dis_real_loss.append(real_loss)
+            self.dis_fake_loss.append(fake_loss)
+            self.dis_loss.append(total_loss)
+        else:
+            self.dis_loss.append(total_loss)
+
+    def check_per_batch(self, real, generated, it):
+        return
+    
+    def train_gen(self, real):
+        self.enable_training(self.generator, True)
+        self.enable_training(self.discriminator, False)
+
+
+        real = real.to(self.device)
+        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getNoiseDim())).to(self.device)
+
+        fake = self.generator(noise)
+
+        f_pred = self.discriminator(fake)
+        
+        loss = self.criterion(f_pred, torch.ones_like(f_pred))
+
+        self.gen_opt.zero_grad()
+        loss.backward()
+        self.gen_opt.step()
+
+        return (loss.item(), fake)
+    
+    def train_disc(self, real):
+        self.enable_training(self.generator, False)
+        self.enable_training(self.discriminator, True)
+
+        real = real.to(self.device)
+        noise = torch.randn((Constants.BATCH_SIZE, self.generator.getNoiseDim())).to(self.device)
+
+        fake = self.generator(noise)
+
+        f_pred = self.discriminator(fake)
+        r_pred = self.discriminator(real)
+
+        fake_loss = self.criterion(f_pred, torch.zeros_like(f_pred))
+        real_loss = self.criterion(r_pred, torch.ones_like(r_pred))
+        total_loss = (fake_loss + real_loss) / 2
+
+        self.disc_opt.zero_grad()
+        total_loss.backward()
+        self.disc_opt.step()
+
+        return total_loss.item(), real_loss.item(), fake_loss.item()
+
+    def train_for_epochs(self, n_epochs):
+        self.initial__time = time.time()
+        print(self.initial__time)
+        for e in range(0, n_epochs):
+            self.epoch(e + self.act)
+            self.act += 1
+
+    def epoch(self, ep):
+        it = 0
+        for real in tqdm(self.dataloader):
+            if real[0].shape[0] != Constants.BATCH_SIZE :
+                print(real[0].shape[0])
+                break
+
+            real, tag = real
+
+            g_loss, generated = self.train_gen(real)
+            t_loss = self.train_disc(real)
+
+            self.gen_loss.append(g_loss)
+            self.appendDiscLoss(t_loss)
+
+            self.iter = self.iter + 1
+            it = it + 1
+
+            if self.iter % self.log_step == 0 and self.iter > 0 :
+                self.plot_losses()
+                self.save_results(real, generated)
+            
+                if self.time_steps:
+                    self.plot_step_time()
+        
+            if self.checksave and self.iter % self.save_step == 0:
+                self.saveCheckpoint(ep)
+        
+        
+        if self.time_epochs:
+            self.plot_epoch_time()
+
+        self.check_per_batch(real, generated, it)
+    
+    def plot_losses(self):
+        
+        self.dis_plot_loss.append(sum(self.dis_loss[-self.log_step:])/self.log_step)
+        self.gen_plot_loss.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
+
+        if self.verb :
+            l1 = sum(self.dis_fake_loss[-self.log_step:])/self.log_step
+            l2 = sum(self.dis_real_loss[-self.log_step:])/self.log_step
+            self.dis_fake_loss_plot.append(l1)
+            self.dis_real_loss_plot.append(l2)
+
+        title = "Gen Loss: " + str(self.gen_plot_loss[-1]) + " Disc Loss: " + str(self.dis_plot_loss[-1])
+        print(title)
+        
+        self.ejeX.append(self.iter)
+        arEjeX = np.array(self.ejeX)
+        plt.plot(arEjeX, np.array(self.gen_plot_loss), label = "Gen Loss")
+        plt.plot(arEjeX, np.array(self.dis_plot_loss), label = "Disc Loss")
+
+        if self.verb :
+            plt.plot(arEjeX, np.array(self.dis_fake_loss_plot), label = "Disc Fake Loss")
+            plt.plot(arEjeX, np.array(self.dis_real_loss_plot), label = "Disc Real Loss")
+
+        plt.title(title)
+        plt.legend()
+
+        os.chdir(self.log_dir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        os.chdir('..')
+
+        plt.clf()
+        
+        
 
 class Cond_Trainer(GAN_Trainer):
     def __init__(self, dataloader, generator, discriminator, criterion, log_step, log_dir, num_classes, device = 'cuda', verb = False, checksave = False, save_step = None, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = False, time_epochs = False):
