@@ -192,7 +192,7 @@ class GAN_Trainer:
         plt.legend()
 
         os.chdir(self.log_dir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.act) + " epoch_times" + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.act) + " epoch_times" + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -214,7 +214,7 @@ class GAN_Trainer:
         plt.legend()
 
         os.chdir(self.log_dir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + " step_times" + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + " step_times" + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -248,7 +248,7 @@ class Normal_Trainer(GAN_Trainer):
         self.dis_loss.append( c_d['loss'] )
 
 
-        self.gen.load_state_dict(c_g['model_state_dict'])
+        self.generator.load_state_dict(c_g['model_state_dict'])
         self.gen_opt.load_state_dict(c_g['optimizer_state_dict'])
         self.gen_loss.append( c_g['loss'] )
 
@@ -399,7 +399,7 @@ class Normal_Trainer(GAN_Trainer):
         plt.legend()
 
         os.chdir(self.log_dir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -623,7 +623,7 @@ class Cond_Trainer(GAN_Trainer):
         plt.legend()
 
         os.chdir(self.log_dir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -846,7 +846,7 @@ class Cycle_Trainer(GAN_Trainer):
         plt.legend()
 
         os.chdir(self.log_dir)
-        plt.savefig(datetime.now().strftime("%d-%m") + " iter " + str(self.iter) + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m") + " iter " + str(self.iter) + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -1076,7 +1076,7 @@ class Style_Prog_Trainer:
         plt.legend()
 
         os.chdir(self.resdir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -1127,7 +1127,7 @@ class Style_Prog_Trainer:
         plt.legend()
 
         os.chdir(self.resdir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.num_ep) + "epoch_times" + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.num_ep) + "epoch_times" + '.pdf')
         os.chdir('..')
 
         plt.clf()
@@ -1149,7 +1149,7 @@ class Style_Prog_Trainer:
         plt.legend()
 
         os.chdir(self.resdir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + "step_times" + '.svg')
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + "step_times" + '.pdf')
         os.chdir('..')
 
         plt.clf()
