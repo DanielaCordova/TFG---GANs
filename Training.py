@@ -1,4 +1,3 @@
-
 from abc import abstractclassmethod
 from venv import create
 import tqdm
@@ -1199,9 +1198,9 @@ class Cycle_Trainer():
 
         self.act = pre_dict['epoch']
     
-        self.dis_loss.append(pre_dict['disc_loss'])
+        self.dis_loss = pre_dict['disc_loss']
 
-        self.gen_loss.append(pre_dict['gen_loss'])
+        self.gen_loss = pre_dict['gen_loss']
 
         os.chdir('..')
 
@@ -1209,16 +1208,16 @@ class Cycle_Trainer():
         os.chdir(self.log_dir)
         
         torch.save({
-            'gen_AB': gen_AB.state_dict(),
-            'gen_BA': gen_BA.state_dict(),
-            'gen_opt': gen_opt.state_dict(),
-            'disc_A': disc_A.state_dict(),
-            'disc_A_opt': disc_A_opt.state_dict(),
-            'disc_B': disc_B.state_dict(),
-            'disc_B_opt': disc_B_opt.state_dict(),
+            'gen_AB': self.gen_AB.state_dict(),
+            'gen_BA': self.gen_BA.state_dict(),
+            'gen_opt': self.gen_opt.state_dict(),
+            'disc_A': self.disc_A.state_dict(),
+            'disc_A_opt': self.disc_A_opt.state_dict(),
+            'disc_B': self.disc_B.state_dict(),
+            'disc_B_opt': self.disc_B_opt.state_dict(),
             'epoch': epoch,
-            'gen_loss': generator_losses,
-            'disc_loss': discriminator_losses
+            'gen_loss': self.gen_loss,
+            'disc_loss': self.dis_loss
         }, 'cycleGAN_' + str(epoch) + '.pth')
 
         os.chdir('..')
@@ -1240,10 +1239,10 @@ class Cycle_Trainer():
 
         ### Update generator ###
         self.gen_opt.zero_grad()
-        self.gen_loss, fake_A, fake_B = self.get_gen_loss(
+        gen_loss, fake_A, fake_B = self.get_gen_loss(
             real_A, real_B, self.gen_AB, self.gen_BA, self.disc_A, self.disc_B, self.adv_criterion, self.recon_criterion, self.recon_criterion
         )
-        self.gen_loss.backward() # Update gradients
+        gen_loss.backward() # Update gradients
         self.gen_opt.step() # Update optimizer
 
         return (gen_loss, fake_A, fake_B)
@@ -1258,7 +1257,7 @@ class Cycle_Trainer():
         self.disc_A_opt.zero_grad() # Zero out the gradient before backpropagation
         with torch.no_grad():
             fake_A = self.gen_BA(real_B)
-        disc_A_loss =disc_loss(real_A, fake_A, self.disc_A, self.adv_criterion)
+        disc_A_loss =self.get_disc_loss(real_A, fake_A, self.disc_A, self.adv_criterion)
         disc_A_loss.backward(retain_graph=True) # Update gradients
         self.disc_A_opt.step() # Update optimizer
 
@@ -1274,13 +1273,15 @@ class Cycle_Trainer():
 
     def train_for_epochs(self, n_epochs):
         self.initial__time = time.time()
+        self.mean_generator_loss = 0
+        self.mean_discriminator_loss = 0
         for e in range(0, n_epochs):
             self.epoch(e + self.act)
             self.act += 1
 
 
     def epoch(self, ep):
-        
+        it = 0
         for (real_A, real_B) in tqdm(zip(self.dataloader1, self.dataloader2)):
             real_A = nn.functional.interpolate(real_A, size=self.target_shape)
             real_B = nn.functional.interpolate(real_B, size=self.target_shape)
@@ -1288,19 +1289,19 @@ class Cycle_Trainer():
             real_B = real_B.to(self.device)
 
             
-            gen_loss, fake_A, fake_B = self.train_gen(real_A, real_B)
+            generator_loss, fake_A, fake_B = self.train_gen(real_A, real_B)
             disc_A_loss, disc_B_loss = self.train_disc(real_A, real_B)
             
 
             # Keep track of the average discriminator loss
-            mean_discriminator_loss += disc_A_loss.item() / display_step
+            self.mean_discriminator_loss += disc_A_loss.item() / display_step
             # Keep track of the average generator loss
-            mean_generator_loss += gen_loss.item() / display_step
+            self.mean_generator_loss += generator_loss.item() / display_step
 
             # Keep track of the generator losses
-            generator_losses += [gen_loss.item()]
+            self.gen_loss.append(generator_loss.item())
             # Keep track of the average discriminator loss
-            discriminator_losses += [disc_A_loss.item()]
+            self.dis_loss.append(disc_A_loss.item())
             
             self.iter = self.iter + 1
             it = it + 1
@@ -1377,11 +1378,12 @@ class Cycle_Trainer():
 
     def plot_losses(self):
         
-        mean_generator_loss = 0
-        mean_discriminator_loss = 0
+        self.mean_generator_loss = 0
+        self.mean_discriminator_loss = 0
         step_bins = 20
         x_axis = sorted([i * step_bins for i in range(len(self.gen_loss) // step_bins)] * step_bins)
         num_examples = (len(self.gen_loss) // step_bins) * step_bins
+        print(self.gen_loss)
         plt.plot(
             range(num_examples // step_bins), 
             torch.Tensor(self.gen_loss[:num_examples]).view(-1, step_bins).mean(1),
@@ -1392,8 +1394,6 @@ class Cycle_Trainer():
             torch.Tensor(self.dis_loss[:num_examples]).view(-1, step_bins).mean(1),
             label="Discriminator Loss"
         )
-        
-        plt.title(title)
         plt.legend()
         
         os.chdir(self.log_dir)
