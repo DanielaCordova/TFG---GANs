@@ -29,8 +29,8 @@ else:
     load = False
 
 # Modulos
-disc = Discriminators.DiscriminadorCondicional('cuda',3,64)
-gen = Generators.GeneradorGAN(64)
+disc = Discriminators.DiscriminadorCondicional('cuda',1,64)
+gen = Generators.GeneradorGAN(64, numChan=1)
 
 gen.train()
 disc.train()
@@ -41,18 +41,17 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'GANTraining17'
+training_dir = 'D:/UNI/TFG/GANTraining8'
 
 # Dataset
 
-ds = torch.load('preprocessedMNIST.pt')
+ds = torch.load('preprocessedMNIST8.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
 criterion = nn.BCEWithLogitsLoss()
 n_epochs = 100
-display_step = int(2900/Constants.BATCH_SIZE)
-checkpoint_step = int(2900/Constants.BATCH_SIZE)
-
+display_step = int(5000/Constants.BATCH_SIZE)
+checkpoint_step = int(5000/Constants.BATCH_SIZE)
 trainer = Training.Normal_Trainer(dataLoader, gen, disc, criterion,display_step, training_dir, 'cuda', True, True, checkpoint_step, time_steps = True, time_epochs = True)
 trainer.train_for_epochs(n_epochs)

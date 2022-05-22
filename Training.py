@@ -337,6 +337,10 @@ class Normal_Trainer(GAN_Trainer):
             self.epoch(e + self.act)
             self.act += 1
 
+    def save_results(self, real, generated):
+        ImageFunctions.tensor_as_image(generated, self.iter, "fake", self.log_dir, save = True, show = False)
+        ImageFunctions.tensor_as_image(real, self.iter, "real", self.log_dir, save = True, show = False)
+
     def epoch(self, ep):
         it = 0
         for real in tqdm(self.dataloader):
