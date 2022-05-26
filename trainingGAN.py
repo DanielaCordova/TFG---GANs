@@ -29,8 +29,8 @@ else:
     load = False
 
 # Modulos
-disc = Discriminators.DiscriminadorCondicional('cuda',1,64)
-gen = Generators.GeneradorGAN(64, numChan=1)
+disc = Discriminators.DiscriminadorGAN('cuda',1,28)
+gen = Generators.GeneradorGAN(28, numChan=1)
 
 gen.train()
 disc.train()
