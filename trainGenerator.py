@@ -24,7 +24,7 @@ gen.apply(GANUtils.weights_init)
 
 # Dataset
 
-ds = torch.load('preprocessedDataset.pt')
+ds = torch.load('PreprocessDatasets/preprocessedDataset.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 

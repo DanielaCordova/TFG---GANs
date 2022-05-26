@@ -45,7 +45,7 @@ training_dir = 'ConditionalTraining'
 
 # Dataset
 
-ds = torch.load('preprocessed15ClassesCondDataset.pt')
+ds = torch.load('PreprocessDatasets/preprocessed15ClassesCondDataset.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 

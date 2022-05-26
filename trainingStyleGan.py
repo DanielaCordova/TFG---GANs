@@ -50,7 +50,7 @@ training_dir = 'BS_dif_prueba4'
 
 # Dataset
 
-ds = torch.load('preprocessedDataset.pt')
+ds = torch.load('PreprocessDatasets/preprocessedDataset.pt')
 batch_sizes = [32, 32, 32, 16, 8, 4, 2, 1, 1]
 dataLoader = DataLoader(ds, 32, shuffle=True)
 

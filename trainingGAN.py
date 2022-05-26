@@ -45,7 +45,7 @@ training_dir = 'D:/UNI/TFG/GANTraining8'
 
 # Dataset
 
-ds = torch.load('preprocessedMNIST8.pt')
+ds = torch.load('PreprocessDatasets/preprocessedMNIST8.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 

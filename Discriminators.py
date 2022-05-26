@@ -4,6 +4,7 @@ import torch.functional as F
 import torch.nn.functional as nnF
 import CustomLayers as cl
 import Blocks as bk
+import math
 
 
 class DiscriminadorGAN(nn.Module):

@@ -1,6 +1,7 @@
 import GANUtils
 import Generators
 import Discriminators
+import Training
 import torch
 import torch.nn as nn
 import Constants
@@ -38,8 +39,8 @@ gen_disc_load = 'cycleGAN_0.pth'
 
 # Dataset
 
-ds1 = torch.load('preprocessedApple.pt')
-ds2 = torch.load('preprocessedBanana.pt')
+ds1 = torch.load('PreprocessDatasets/preprocessedApple.pt')
+ds2 = torch.load('PreprocessDatasets/preprocessedBanana.pt')
 
 dataLoader1 = DataLoader(ds1, batch_size=Constants.BATCH_SIZE, shuffle=True)
 dataLoader2 = DataLoader(ds2, batch_size=Constants.BATCH_SIZE, shuffle=True)
@@ -49,7 +50,7 @@ display_step = 1000
 checkpoint_step = 1000
 
 
-trainer = Cycle_Trainer(dataLoader1, dataLoader2, gen_AB, gen_BA, gen_opt, disc_A, disc_A_opt, disc_B, disc_B_opt, adv_criterion, 
+trainer = Training.Cycle_Trainer(dataLoader1, dataLoader2, gen_AB, gen_BA, gen_opt, disc_A, disc_A_opt, disc_B, disc_B_opt, adv_criterion,
 recon_criterion, display_step, training_dir, target_shape, 'cuda', True, checkpoint_step, True, load_dir, gen_disc_load, time_steps = True, time_epochs = True)
 
 

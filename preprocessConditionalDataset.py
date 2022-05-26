@@ -13,4 +13,4 @@ dataSets = [ImageFunctions.DataSetCarpeta(root_path + e, ImageFunctions.getTrans
 
 ds = torch.utils.data.ConcatDataset(dataSets)
 
-torch.save(ds, 'preprocessed15ClassesCondDataset.pt')
+torch.save(ds, 'PreprocessDatasets/preprocessed15ClassesCondDataset.pt')
