@@ -427,3 +427,22 @@ class Cycle_Trainer():
         plt.savefig(datetime.now().strftime("%d-%m") + " iter " + str(self.iter) +'.pdf')
         os.chdir('..')
         plt.clf()
+
+
+
+    def generate_samples(self, n_samples = 1):
+        i = 0
+        for (real_A, real_B) in tqdm(zip(self.dataloader1, self.dataloader2)):
+            i += 1
+            real_A = nn.functional.interpolate(real_A, size=self.target_shape)
+            real_B = nn.functional.interpolate(real_B, size=self.target_shape)
+            real_A = real_A.to(self.device)
+            real_B = real_B.to(self.device)
+            gen_loss, fake_A, fake_B = self.get_gen_loss(
+                real_A, real_B, self.gen_AB, self.gen_BA, self.disc_A, self.disc_B, self.adv_criterion,
+                self.recon_criterion, self.recon_criterion
+            )
+            self.save_results(torch.cat([real_A, real_B]), torch.cat([fake_B, fake_A]))
+
+            if i > n_samples :
+                break
