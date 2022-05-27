@@ -406,6 +406,12 @@ class Normal_Trainer(GAN_Trainer):
         os.chdir('..')
 
         plt.clf()
+
+    def generate_samples(self, n_samples):
+        for i in range(0, n_samples):
+            noise = torch.randn((i, self.generator.getNoiseDim())).to(self.device)
+            samples = self.generator(noise)
+            ImageFunctions.tensor_as_image(samples, self.iter, "sample", self.log_dir, save = True, show = False)
         
         
 

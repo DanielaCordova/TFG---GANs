@@ -1,15 +1,13 @@
-import GANUtils
-import Generators
-import Discriminators
 import Training
+import Constants
 import torch
 import torch.nn as nn
-import Constants
-from torchvision.datasets import ImageFolder
-import ImageFunctions
-from torch.utils.data import DataLoader
-import os
+import GANUtils
+import SimpleDiscriminator 
+import SimpleGenerator
 import sys
+import os
+from torch.utils.data import DataLoader
 
 
 load_folder = None
@@ -18,19 +16,19 @@ disc_load = None
 load = False
 
 if len(sys.argv) != 1 and len(sys.argv) != 5:
-    print("Usage: python trainingStyleGan.py [<load> <folder> <generator_load> <discriminator_load>]")
+    print("Usage: python trainingStyleGan.py trainingDir dataset [<load> <folder> <generator_load> <discriminator_load>]")
 
-if len(sys.argv) == 5 and sys.argv[1] == 'load' :
+if len(sys.argv) == 7 and sys.argv[3] == 'load' :
     load = True
-    load_folder = sys.argv[2]
-    gen_load = sys.argv[3]
-    disc_load = sys.argv[4]
+    load_folder = sys.argv[4]
+    gen_load = sys.argv[5]
+    disc_load = sys.argv[6]
 else:
     load = False
 
 # Modulos
-disc = Discriminators.DiscriminadorGAN('cuda',1,28)
-gen = Generators.GeneradorGAN(28, numChan=1)
+disc = SimpleDiscriminator.DiscriminadorGAN('cuda',1,28)
+gen = SimpleGenerator.GeneradorGAN(28, numChan=1)
 
 gen.train()
 disc.train()
@@ -41,11 +39,12 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = 'D:/UNI/TFG/GANTraining8'
+training_dir = sys.argv[1]
+os.mkdir(training_dir)
 
 # Dataset
 
-ds = torch.load('PreprocessDatasets/preprocessedMNIST8.pt')
+ds = torch.load(sys.argv[2])
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
