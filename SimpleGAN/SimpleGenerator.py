@@ -34,5 +34,5 @@ class GeneradorGAN(nn.Module):
             return nn.Sequential(
                 nn.ConvTranspose2d(inChan, outChan, kernTam, stride).to(device),
                 nn.BatchNorm2d(outChan).to(device),
-                nn.ReLU(inplace=True).to(device),
+                nn.LeakyReLU(0.2, inplace=True).to(device),
             )

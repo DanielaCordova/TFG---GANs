@@ -16,7 +16,7 @@ disc_load = None
 load = False
 
 if len(sys.argv) != 1 and len(sys.argv) != 5:
-    print("Usage: python trainingStyleGan.py resultsDir <folder> <generator_load> <discriminator_load>")
+    print("Usage: python generateSamples.py resultsDir <folder> <generator_load> <discriminator_load>")
 
 
 load = True

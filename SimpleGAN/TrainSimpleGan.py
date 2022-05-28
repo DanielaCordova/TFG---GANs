@@ -1,3 +1,10 @@
+import sys
+import os
+
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 import Training
 import Constants
 import torch
@@ -5,7 +12,6 @@ import torch.nn as nn
 import GANUtils
 import SimpleDiscriminator 
 import SimpleGenerator
-import sys
 import os
 from torch.utils.data import DataLoader
 
@@ -15,8 +21,10 @@ gen_load = None
 disc_load = None
 load = False
 
-if len(sys.argv) != 1 and len(sys.argv) != 5:
-    print("Usage: python trainingStyleGan.py trainingDir dataset [<load> <folder> <generator_load> <discriminator_load>]")
+if len(sys.argv) != 3 and len(sys.argv) != 5:
+    print(len(sys.argv))
+    print("Usage: python TrainSimpleGan.py trainingDir dataset [<load> <folder> <generator_load> <discriminator_load>]")
+    exit()
 
 if len(sys.argv) == 7 and sys.argv[3] == 'load' :
     load = True
@@ -27,8 +35,8 @@ else:
     load = False
 
 # Modulos
-disc = SimpleDiscriminator.DiscriminadorGAN('cuda',1,28)
-gen = SimpleGenerator.GeneradorGAN(28, numChan=1)
+disc = SimpleDiscriminator.DiscriminadorGAN('cuda',1,64)
+gen = SimpleGenerator.GeneradorGAN(64, numChan=1)
 
 gen.train()
 disc.train()

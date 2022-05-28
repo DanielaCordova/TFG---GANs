@@ -9,8 +9,8 @@ class DiscriminadorGAN(nn.Module):
     l = [self.generar_bloque_discriminador(inChan, hiddenDim, device= device),
         self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2, device= device),
         self.generar_bloque_discriminador(hiddenDim*2, hiddenDim * 4, device= device),
-        self.generar_bloque_discriminador(hiddenDim*4, inChan,device= device,ultimaCapa= True )]
-
+        self.generar_bloque_discriminador(hiddenDim*4, inChan,device= device ),
+        self.generar_bloque_discriminador(1, 1, device, 3, 1, True)]
     self.discriminador = nn.ModuleList(
         l
     )

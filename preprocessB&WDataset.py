@@ -1,4 +1,10 @@
+import sys
 import os
+
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 from torchvision.datasets import ImageFolder
 import ImageFunctions
 from torch.utils.data import DataLoader 

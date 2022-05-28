@@ -318,6 +318,7 @@ class Normal_Trainer(GAN_Trainer):
         fake = self.generator(noise)
 
         f_pred = self.discriminator(fake)
+
         r_pred = self.discriminator(real)
 
         fake_loss = self.criterion(f_pred, torch.zeros_like(f_pred))
@@ -409,9 +410,9 @@ class Normal_Trainer(GAN_Trainer):
 
     def generate_samples(self, n_samples):
         for i in range(0, n_samples):
-            noise = torch.randn((i, self.generator.getNoiseDim())).to(self.device)
+            noise = torch.randn((1, self.generator.getNoiseDim())).to(self.device)
             samples = self.generator(noise)
-            ImageFunctions.tensor_as_image(samples, self.iter, "sample", self.log_dir, save = True, show = False)
+            ImageFunctions.tensor_as_image(samples, i, "sample", self.log_dir, save = True, show = False)
         
         
 
@@ -444,7 +445,7 @@ class Cond_Trainer(GAN_Trainer):
         self.dis_loss.append( c_d['loss'] )
 
 
-        self.gen.load_state_dict(c_g['model_state_dict'])
+        self.generator.load_state_dict(c_g['model_state_dict'])
         self.gen_opt.load_state_dict(c_g['optimizer_state_dict'])
         self.gen_loss.append( c_g['loss'] )
 
@@ -474,8 +475,8 @@ class Cond_Trainer(GAN_Trainer):
     
     def preprocessRealData(self, real_data):
         real, tag = real_data
-
         tag = torch.nn.functional.one_hot(tag, self.num_classes)
+        print(tag.shape)
         img_vec_tag = tag[:,:,None,None]
         img_vec_tag = img_vec_tag.repeat(1,1, real.shape[2], real.shape[3])
         img_vec_tag = torch.cat((real.float(), img_vec_tag.float()),1)
@@ -510,6 +511,7 @@ class Cond_Trainer(GAN_Trainer):
 
         real = real.to(self.device)
         tag  = tag.to(self.device)
+        print(tag.shape)
         noise = torch.randn((Constants.BATCH_SIZE, self.generator.getNoiseDim())).to(self.device)
 
         noise_tag = self.combinarVectores(noise, tag)
@@ -636,6 +638,20 @@ class Cond_Trainer(GAN_Trainer):
         os.chdir('..')
 
         plt.clf()
+
+    def generate_samples(self, n_samples):
+        for i in range(1, n_samples+1):
+            noise = torch.randn((1, self.generator.getNoiseDim())).to(self.device)
+            tag = torch.randint(0, self.num_classes, (1, 1)).to(self.device)
+            tag = tag.view(-1)
+
+            tag = torch.nn.functional.one_hot(tag, self.num_classes)
+
+            noise_tag = self.combinarVectores(noise, tag)
+            fake = self.generator(noise_tag)
+            
+            ImageFunctions.tensor_as_image(fake, i, "sample", self.log_dir, save = True, show = False)
+
         
 
 class Style_Prog_Trainer:

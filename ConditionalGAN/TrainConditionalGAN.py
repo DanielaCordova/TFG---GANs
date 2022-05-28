@@ -1,23 +1,26 @@
-import GANUtils
-import Generators
-import Discriminators
+import sys
+import os
+
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 import Training
+import Constants
 import torch
 import torch.nn as nn
-import Constants
-from torchvision.datasets import ImageFolder
-import ImageFunctions
-from torch.utils.data import DataLoader 
+import GANUtils
+import ConditionalDiscriminator 
+import ConditionalGenerator
 import os
-import sys
-
+from torch.utils.data import DataLoader
 
 load_folder = None
 gen_load = None
 disc_load = None
 load = False
 
-if len(sys.argv) != 2 and len(sys.argv) != 6:
+if len(sys.argv) != 1 and len(sys.argv) != 5:
     print("Usage: python trainingStyleGan.py trainingDir <load> <folder> <generator_load> <discriminator_load>")
 
 if len(sys.argv) == 5 and sys.argv[2] == 'load' :
@@ -29,8 +32,8 @@ else:
     load = False
 
 # Modulos
-disc = Discriminators.DiscriminadorCondicional('cuda',18,64)
-gen = Generators.GeneradorCondicional(64,15)
+disc = ConditionalDiscriminator.DiscriminadorCondicional('cuda',18,64)
+gen = ConditionalGenerator.GeneradorCondicional(64,15)
 
 gen.train()
 disc.train()
@@ -41,16 +44,15 @@ if not load :
 
 # Carpeta para resultados
 
-training_dir = sys.argv[2]
+training_dir = sys.argv[1]
 os.mkdir(training_dir)
 
 # Dataset
 
-ds = torch.load('preprocessed15ClassesCondDataset.pt')
+ds = torch.load('preprocessed15ClassesDataset.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
-os.mkdir(training_dir)
 
 # Entrenamiento
 
