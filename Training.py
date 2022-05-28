@@ -1296,9 +1296,9 @@ class Cycle_Trainer():
             disc_A_loss, disc_B_loss = self.train_disc(real_A, real_B)
 
             # Keep track of the average discriminator loss
-            self.mean_discriminator_loss += disc_A_loss.item() / display_step
+            self.mean_discriminator_loss += disc_A_loss.item() / self.log_step
             # Keep track of the average generator loss
-            self.mean_generator_loss += generator_loss.item() / display_step
+            self.mean_generator_loss += generator_loss.item() / self.log_step
 
             # Keep track of the generator losses
             self.gen_loss.append(generator_loss.item())

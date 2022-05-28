@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 n_epochs = 100
 batch_size = 1
 lr = 0.0002
-target_shape = 200
+target_shape = 64
 device = 'cuda'
 
 # Modulos
