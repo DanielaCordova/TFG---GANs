@@ -1,3 +1,9 @@
+import sys, os
+
+curentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(curentdir)
+sys.path.append(parentdir)
+
 import torch.nn as nn
 import Blocks as bk
 

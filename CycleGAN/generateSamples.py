@@ -1,3 +1,9 @@
+import sys, os
+
+curentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(curentdir)
+sys.path.append(parentdir)
+
 import CycleGenerator
 import CycleDiscriminator
 import Training
@@ -5,7 +11,6 @@ import torch
 import torch.nn as nn
 import Constants
 from torch.utils.data import DataLoader
-import os
 
 n_epochs = 100
 batch_size = 1

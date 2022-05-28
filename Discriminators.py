@@ -8,7 +8,7 @@ import math
 
 class DiscriminadorGAN(nn.Module):
 
-  def __init__(self, device = 'cuda', inChan=1, hiddenDim=64):
+  def __init__(self, device = 'cuda', inChan=3, hiddenDim=64):
     super(DiscriminadorGAN, self).__init__()
     l = [self.generar_bloque_discriminador(inChan, hiddenDim, device= device),
         self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2, device= device),
@@ -19,7 +19,7 @@ class DiscriminadorGAN(nn.Module):
         l
     )
 
-  def generar_bloque_discriminador(self, inChan, outChan, device = 'cuda', kernel = 2, stride = 2, ultimaCapa = False):
+  def generar_bloque_discriminador(self, inChan, outChan, device = 'cuda', kernel = 4, stride = 2, ultimaCapa = False):
     if ultimaCapa :
       return nn.Sequential(
           nn.Conv2d(inChan, outChan, kernel, stride).to(device),
@@ -42,7 +42,7 @@ class DiscriminadorGAN(nn.Module):
 
 class DiscriminadorCondicional(nn.Module):
 
-  def __init__(self, device = 'cuda', inChan=1, hiddenDim=64):
+  def __init__(self, device = 'cuda', inChan=3, hiddenDim=64):
     super(DiscriminadorCondicional, self).__init__()
     l = [self.generar_bloque_discriminador(inChan, hiddenDim, device= device),
         self.generar_bloque_discriminador(hiddenDim, hiddenDim * 2, device= device),

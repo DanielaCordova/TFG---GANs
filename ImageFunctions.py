@@ -85,6 +85,23 @@ def tensor_as_image(img_tensor, iter, tag = None, dir = None, num_images=25, siz
 
     plt.clf()
     
+    
+def tensor_as_image_gray(img_tensor, iter, tag = None, dir = None, num_images=25, size=(3,64,64), nrow=5, save=True ,show=True):
+    img_tensor = (img_tensor + 1) / 2
+    image_unflat = img_tensor.detach().cpu()
+    image_grid = make_grid(image_unflat[:num_images], nrow=nrow)
+    print(image_grid.permute(1,2,0).squeeze().size())
+    plt.imshow(image_grid.permute(1,2,0).squeeze()[:,:,1])
+    
+    if save:
+        os.chdir(dir)
+        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(iter) + tag + '.pdf')
+        os.chdir('..')
+    if show:
+        plt.show()
+
+    plt.clf()
+    
 class DataSetCarpeta(Dataset):
 
   def __init__(self, dir, t, tag):
