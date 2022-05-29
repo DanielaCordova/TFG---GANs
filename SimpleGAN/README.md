@@ -19,3 +19,19 @@ The main component is the Generator, which essentially plays the role of the art
 Additionally, the GAN includes a Discriminator playing the role of the art critic as it takes the image the Generator has produced and determines whether that image is real or produced by the Generator. Moreover, during the training process, the Discriminator learns what a real image looks like by processing real images taken from a dataset.
 
 ![GanExample](https://user-images.githubusercontent.com/60478676/170842196-dd5f773e-478c-4f90-8655-a150cca98c0c.png)
+
+# Code Structure
+
+## Classes
+
+- [SimpleDiscriminator.py](SimpleDiscriminator.py): Contains the GANs Discriminator class
+- [SimpleGenerator.py](SimpleGenerator.py): Contains the GANs Generator
+- [datasetBandW.py](datasetBandW.py): Contains the class used for creating one channel datasets
+
+
+## Executables
+
+- [generateSamples.py](generateSamples.py): Generates a given number of samples from either a previously trained model that is given, or a new one from scratch without training the models
+- [TrainSimpleGan.py](TrainSimpleGan.py): Trains a model, that is either previously trained or not, for the number of epochs given
+- [preprocessBWDataset.py](preprocessBWDataset.py): Creates a preprocessed dataset of a given dataset in a one channel .pt file
+
