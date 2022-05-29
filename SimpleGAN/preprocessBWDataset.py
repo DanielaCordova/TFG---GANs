@@ -25,4 +25,4 @@ dataSets = [ImageFunctions.DataSetCarpetaBlackandWhite(root_path + e, transform,
 
 ds = torch.utils.data.ConcatDataset(dataSets)
 
-torch.save(ds, 'preprocessedMNIST8.pt')
+torch.save(ds, 'PreprocessDatasets/preprocessedMNIST8.pt')
