@@ -22,6 +22,12 @@ Additionally, the GAN includes a Discriminator playing the role of the art criti
 
 # Code Structure
 
+## Folders
+
+- [PreprocessDatasets](PreprocessDatasets): Contains the preprocess datasets used for training and generating samples
+- [models](models): Contains pre-trained models that can be used for generating samples
+- [GANTraining](GANTraining) : Folder in which generated and real images, as well as the loss function grafic will be saved 
+
 ## Classes
 
 - [SimpleDiscriminator.py](SimpleDiscriminator.py): Contains the GANs Discriminator class
