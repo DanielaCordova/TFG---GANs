@@ -14,9 +14,9 @@ There has been a lot of progress in recent years when it comes to creating video
 
 
 <p float="left">
-  <img src="https://user-images.githubusercontent.com/60478676/170839738-d260e68d-2c81-47cc-acd0-f3725ca0173b.png" width="300">
-  <img src="https://user-images.githubusercontent.com/60478676/170839740-f08bf15f-5900-49a8-9ba5-615f7c492019.jpg" width="300">
-  <img src="https://user-images.githubusercontent.com/60478676/170839742-b45be7f9-0322-43be-b7ec-390bbaaa808a.png" width="300">
+  <img src="https://user-images.githubusercontent.com/60478676/170839738-d260e68d-2c81-47cc-acd0-f3725ca0173b.png" width="270">
+  <img src="https://user-images.githubusercontent.com/60478676/170839740-f08bf15f-5900-49a8-9ba5-615f7c492019.jpg" width="270">
+  <img src="https://user-images.githubusercontent.com/60478676/170839742-b45be7f9-0322-43be-b7ec-390bbaaa808a.png" width="270">
 </p>
 
 
