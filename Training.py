@@ -454,7 +454,7 @@ class Cond_Trainer(GAN_Trainer):
         self.dis_loss.append( c_d['loss'] )
 
 
-        self.gen.load_state_dict(c_g['model_state_dict'])
+        self.generator.load_state_dict(c_g['model_state_dict'])
         self.gen_opt.load_state_dict(c_g['optimizer_state_dict'])
         self.gen_loss.append( c_g['loss'] )
 
@@ -646,6 +646,17 @@ class Cond_Trainer(GAN_Trainer):
         os.chdir('..')
 
         plt.clf()
+
+    def generate_samples(self, num_samples):
+        for i in range(0, num_samples):
+            noise = torch.randn((1, self.generator.getNoiseDim())).to(self.device)
+            tag = torch.randint(0, self.num_classes, (1, 1)).to(self.device)
+            oh_tag = torch.nn.functional.one_hot(tag, self.num_classes)
+            oh_tag = oh_tag.view(1, -1)
+            noise_tag = self.combinarVectores(noise, oh_tag)
+            fake = self.generator(noise_tag)
+            ImageFunctions.tensor_as_image(fake, i, "sample", self.log_dir, save = True, show = False)
+            
         
 
 class Style_Prog_Trainer:
