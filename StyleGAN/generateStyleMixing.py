@@ -3,9 +3,13 @@ import sys
 
 import numpy as np
 from PIL import Image
+import os
+import PIL
+import glob
 
 import torch
 from torch import Tensor
+from torch.nn.functional import interpolate
 
 import Training
 from StyleGAN import StyleDiscriminator
@@ -15,7 +19,9 @@ from StyleGAN.trainingStyle import load
 curentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(curentdir)
 sys.path.append(parentdir)
-
+initialDepth=2
+resolution = 128
+out_depth2 = int(np.log2(resolution)) - 2
 
 def adjustImgRange(data, drange_in=(-1, 1), drange_out=(0, 1)):
     if drange_in != drange_out:
@@ -65,7 +71,7 @@ def styleMixing(img, gen, out_depth, src_seeds, dst_seeds, style_inLocation):
                 image = image.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
                 canvas.paste(Image.fromarray(image, 'RGB'), ((col + 1) * anchura, (row + 1) * altura))
 
-
+        canvas = canvas.resize((400,400))
         canvas.save(img)
 
 
@@ -75,11 +81,11 @@ def main():
     device = "cuda"
     print("Start ...")
     loadingPrev = False
-    generator_FILE ="GAN_GEN_0_1.pth"
-    discriminator_FILE = "GAN_DIS_0_1.pth"
-    generatorOptim_FILE = "GAN_GEN_OPTIM_0_1.pth"
-    discriminatorOptim_FILE = "GAN_DIS_OPTIM_0_1.pth"
-    genShadow = "GAN_GEN_SHADOW_0_1.pth"
+    generator_FILE = "GAN_GEN_2_1.pth"
+    discriminator_FILE = "GAN_DIS_2_1.pth"
+    generatorOptim_FILE = "GAN_GEN_OPTIM_2_1.pth"
+    discriminatorOptim_FILE = "GAN_DIS_OPTIM_2_1.pth"
+    genShadow = "GAN_GEN_SHADOW_2_1.pth"
     trainer = Training.Style_Prog_Trainer(
         generator=Generator,
         discriminator=StyleDiscriminator.Discriminator,
@@ -116,7 +122,7 @@ def main():
     # generate the images:
     # src_seeds = [639, 701, 687, 615, 1999], dst_seeds = [888, 888, 888],
     styleMixing(os.path.join(nameFILE), trainer.gen.to("cuda"),
-                out_depth=0, src_seeds=[639, 1995, 6875, 6155, 1999], dst_seeds=[885, 885, 885],
+                out_depth=initialDepth, src_seeds=[639, 1995, 6875, 6155, 1999], dst_seeds=[885, 885, 885],
                 style_inLocation=[range(0, 2)] * 1 + [range(2, 7)] * 1 + [range(7, 11)] * 1)
     print('End.')
 

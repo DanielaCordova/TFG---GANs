@@ -33,13 +33,13 @@ logger = make_logger("project", output_dir, 'log')
 if __name__ == '__main__':
 
     loadingPrev = False
-    generator_FILE ="GAN_GEN_0_1.pth"
-    discriminator_FILE = "GAN_DIS_0_1.pth"
-    generatorOptim_FILE = "GAN_GEN_OPTIM_0_1.pth"
-    discriminatorOptim_FILE = "GAN_DIS_OPTIM_0_1.pth"
-    genShadow = "GAN_GEN_SHADOW_0_1.pth"
+    generator_FILE = "GAN_GEN_2_1.pth"
+    discriminator_FILE = "GAN_DIS_2_1.pth"
+    generatorOptim_FILE = "GAN_GEN_OPTIM_2_1.pth"
+    discriminatorOptim_FILE = "GAN_DIS_OPTIM_2_1.pth"
+    genShadow = "GAN_GEN_SHADOW_2_1.pth"
 
-    initialDepth = 0
+    initialDepth = 2
 
     # gen = Generator(
     #     resolution=120,
