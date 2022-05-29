@@ -3,9 +3,9 @@ import sys, os
 import torch
 
 import Training
+from StyleGAN import StyleDiscriminator
 from StyleGAN.Components import make_dataset, make_logger
-import StyleGenerador
-import StyleDiscriminator
+from StyleGAN.StyleGenerator import Generator
 
 curentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(curentdir)
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     batch_sizes = [8, 8, 8, 8, 8, 4, 2, 1, 1]
 
     trainer = Training.Style_Prog_Trainer(
-                                        generator=StyleGenerador.Generator,
+                                        generator=Generator,
                                         discriminator=StyleDiscriminator.Discriminator,
                                         conditional=False,
                                          n_classes=131,

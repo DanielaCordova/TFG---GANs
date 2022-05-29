@@ -1,4 +1,5 @@
-from datetime import datetime
+import time
+from datetime import datetime, date, time, timedelta
 import timeit
 from abc import abstractclassmethod
 from venv import create
@@ -6,7 +7,6 @@ import tqdm
 from torch.utils.data import DataLoader
 
 import Constants
-import StyleComponents
 import torch
 import ImageFunctions
 import matplotlib.pyplot as plt
@@ -968,7 +968,7 @@ class Style_Prog_Trainer:
 
                     if i % int(total_batches / feedback_factor + 1) == 0 or i == 1:
                         elapsed = time.time() - global_time
-                        elapsed = str(datetime.timedelta(seconds=elapsed)).split('.')[0]
+                        elapsed = str(timedelta(seconds=elapsed)).split('.')[0]
                         logger.info(
                             "Elapsed: [%s] Step: %d  Batch: %d  D_Loss: %f  G_Loss: %f"
                             % (elapsed, step, i, dis_loss, gen_loss))

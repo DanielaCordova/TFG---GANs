@@ -4,7 +4,8 @@ import torch
 
 
 from StyleGAN.Components import make_dataset, make_logger
-import StyleGenerador
+from StyleGAN.StyleGenerator import Generator
+
 
 import os
 import argparse
@@ -36,7 +37,7 @@ if __name__ == '__main__':
 
     initialDepth = 0
 
-    gen = StyleGenerador.Generator(
+    gen = Generator(
         resolution=120,
         conditional=False,
         n_classes=131).to('cuda')
