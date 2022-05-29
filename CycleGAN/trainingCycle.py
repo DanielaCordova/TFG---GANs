@@ -35,19 +35,19 @@ recon_criterion = nn.L1Loss()
 
 training_dir = 'CycleTraining'
 load_dir = 'CycleTraining'
-gen_disc_load = 'cycleGAN_0.pth'
+gen_disc_load = 'cycleGAN_122.pth'
 
 # Dataset
 
 ds1 = torch.load('PreprocessDatasets/preprocessedApple.pt')
-ds2 = torch.load('PreprocessDatasets/preprocessedBanana.pt')
+ds2 = torch.load('PreprocessDatasets/preprocessedPear.pt')
 
 dataLoader1 = DataLoader(ds1, batch_size=Constants.BATCH_SIZE, shuffle=True)
 dataLoader2 = DataLoader(ds2, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
 criterion = nn.BCEWithLogitsLoss()
-display_step = 100
-checkpoint_step = 100
+display_step = 200
+checkpoint_step = 200
 
 
 trainer = Training.Cycle_Trainer(dataLoader1, dataLoader2, gen_AB, gen_BA, gen_opt, disc_A, disc_A_opt, disc_B, disc_B_opt, adv_criterion,
