@@ -19,8 +19,8 @@ import torch
 from torch.nn import AvgPool2d
 from torch.nn.functional import interpolate
 
-from StyleGan.Components import update_average, Losses
-from StyleGan.StyleDiscriminator import Discriminator
+from StyleGAN.Components import update_average, Losses
+from StyleGAN.StyleDiscriminator import Discriminator
 from StyleGenerador import Generator
 
 

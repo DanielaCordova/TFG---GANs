@@ -20,8 +20,10 @@ import torch.nn.functional as F
 import time
 import copy
 
-# from StyleGan.Components import update_average, Losses
-# from StyleGan.Components.data import get_data_loader
+
+from StyleGAN.Components import update_average, Losses
+from StyleGAN.Components.data import get_data_loader
+
 
 
 
@@ -1002,17 +1004,30 @@ class Style_Prog_Trainer:
                 logger.info("Time taken for epoch: %s\n" % elapsed)
                 self.num_ep = self.num_ep + 1
 
+                save_dir = os.path.join(output, 'models')
+                os.makedirs(save_dir, exist_ok=True)
+                gen_save_file = os.path.join(save_dir, "GAN_GEN_" + str(current_depth) + "_" + str(epoch) + ".pth")
+                dis_save_file = os.path.join(save_dir, "GAN_DIS_" + str(current_depth) + "_" + str(epoch) + ".pth")
+                gen_optim_save_file = os.path.join(
+                    save_dir, "GAN_GEN_OPTIM_" + str(current_depth) + "_" + str(epoch) + ".pth")
+                dis_optim_save_file = os.path.join(
+                    save_dir, "GAN_DIS_OPTIM_" + str(current_depth) + "_" + str(epoch) + ".pth")
+
+                torch.save(self.gen.state_dict(), gen_save_file)
+                logger.info("Saving the model to: %s\n" % gen_save_file)
+                torch.save(self.dis.state_dict(), dis_save_file)
+                torch.save(self.gen_optim.state_dict(), gen_optim_save_file)
+                torch.save(self.dis_optim.state_dict(), dis_optim_save_file)
+
+                # also save the shadow generator if use_ema is True
+                if self.use_ema:
+                    gen_shadow_save_file = os.path.join(
+                        save_dir, "GAN_GEN_SHADOW_" + str(current_depth) + "_" + str(epoch) + ".pth")
+                    torch.save(self.gen_shadow.state_dict(), gen_shadow_save_file)
+                    logger.info("Saving the model to: %s\n" % gen_shadow_save_file)
+                self.plot_epoch_time()
+
     def optimize_discriminator(self, noise, real_batch, depth, alpha, labels=None):
-        """
-        performs one step of weight update on discriminator using the batch of data
-
-        :param noise: input noise of sample generation
-        :param real_batch: real samples batch
-        :param depth: current depth of optimization
-        :param alpha: current alpha for fade-in
-        :return: current loss (Wasserstein loss)
-        """
-
         real_samples = self.__progressive_down_sampling(real_batch, depth, alpha)
 
         loss_val = 0
@@ -1202,55 +1217,6 @@ class Style_Prog_Trainer:
         
 
 
-class HingeRelativisticLoss():
-    
-    def dis_loss(self, real_sample, fake_sample, real_pred, fake_pred):
-
-        real_fake_d = real_pred - torch.mean(fake_pred)
-        fake_real_d = fake_pred - torch.mean(real_pred)
-
-        t1 = torch.mean(nn.ReLU()(1-real_fake_d))
-        t2 = torch.mean(nn.ReLU()(1+fake_real_d))
-
-        return (t1 + t2)
-
-    def gen_loss(self, real_sample, fake_sample, real_pred, fake_pred):
-
-        real_fake_d = real_pred - torch.mean(fake_pred)
-        fake_real_d = fake_pred - torch.mean(real_pred)
-
-        t1 = torch.mean(nn.ReLU()(1+real_fake_d))
-        t2 = torch.mean(nn.ReLU()(1-fake_real_d))
-
-        return (t1 + t2)
-
-class LogisticLoss():
-
-    def __init__(self, disc, gamma=10.0):
-        self.gamma = gamma
-        self.disc  = disc
-
-    def dis_loss(self, real_sample, fake_sample, real_pred, fake_pred):
-
-        real_sample = torch.autograd.Variable(real_sample, requires_grad=True)
-        real_log = self.disc(real_sample)
-
-        loss = torch.mean(nn.Softplus()(fake_pred)) + torch.mean(nn.Softplus()(-real_pred))
-
-        r_gradients = torch.autograd.grad(outputs=real_log, inputs=real_sample, 
-        grad_outputs=torch.ones(real_log.size()).to(real_log.device), 
-        create_graph=True, retain_graph=True)[0].view(real_sample.size(0), -1)
-
-        r_gradients = r_gradients.view(real_sample.size(0), -1)
-
-        penalty = torch.sum(torch.mul(r_gradients, r_gradients)) * (self.gamma * 0.5)
-
-        loss = loss + penalty
-
-        return loss
-
-    def gen_loss(self, real_sample, fake_sample, real_pred, fake_pred):
-        return torch.mean(nn.Softplus()(-fake_pred))
 
 
 class Cycle_Trainer():

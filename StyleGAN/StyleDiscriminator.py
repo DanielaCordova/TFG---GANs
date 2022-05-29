@@ -5,8 +5,8 @@ parentdir = os.path.dirname(curentdir)
 sys.path.append(parentdir)
 
 from torch.nn.modules.sparse import Embedding
-from StyleGan.Components.Blocks import *
-from StyleGan.Components.Layers import *
+from StyleGAN.Components.Blocks import *
+from StyleGAN.Components.Layers import *
 
 
 class DiscriminatorFinal(nn.Sequential):
@@ -24,20 +24,20 @@ class DiscriminatorFinal(nn.Sequential):
 
         layers = []
         if mbstd_group_size > 1:
-            layers.append(StddevLayer(mbstd_group_size, mbstd_num_features))
+            layers.append(StandardDeviationLayer(mbstd_group_size, mbstd_num_features))
 
         if in_channels2 is None:
             in_channels2 = in_channels
 
         layers.append(EqualizedConv2d(in_channels + mbstd_num_features, in_channels2, kernel_size=3,
-                                               gain=gain, use_wscale=use_wscale))
+                                      numMul=gain, increaseWeightScale=use_wscale))
         layers.append(activation_layer)
         layers.append(View(-1))
         layers.append(EqualizedLinear(in_channels2 * resolution * resolution, intermediate_channels,
-                                                 gain=gain, use_wscale=use_wscale))
+                                      numMul=gain, increaseWeightScale=use_wscale))
         layers.append(activation_layer)
         layers.append(EqualizedLinear(intermediate_channels, output_features,
-                                                 gain=last_gain, use_wscale=use_wscale))
+                                      numMul=last_gain, increaseWeightScale=use_wscale))
 
         super().__init__(nn.Sequential(*layers))
 
@@ -47,7 +47,7 @@ class DiscriminatorBlock(nn.Sequential):
         layers = []
         layers.append(Conv2dPropia(in_channels, in_channels, kernel_size=3, gain=gain))
         layers.append( nn.LeakyReLU(negative_slope=0.2))
-        layers.append(Conv2DownPropia(in_channels, out_channels, kernel_size=3, gain=gain))
+        layers.append(Conv2DownPropia(in_channels, out_channels, kernel_size=3, numMul=gain))
         layers.append(activation_layer)
         super().__init__(nn.Sequential(*layers))
 
@@ -105,7 +105,7 @@ class Discriminator(nn.Module):
                                               in_channels=nf(2), intermediate_channels=nf(2),
                                               gain=gain, use_wscale=use_wscale, activation_layer=act)
         from_rgb.append(EqualizedConv2d(num_channels, nf(2), kernel_size=1,
-                                        gain=gain, use_wscale=use_wscale))
+                                        numMul=gain, increaseWeightScale=use_wscale))
         self.from_rgb = nn.ModuleList(from_rgb)
 
         # register the temporary downSampler

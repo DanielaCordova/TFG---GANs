@@ -4,8 +4,8 @@ import sys
 
 from torchvision.datasets import ImageFolder
 
-from StyleGan.Components.data.datasets import FoldersDistributedDataset, FlatDirectoryImageDataset
-from StyleGan.Components.data.transforms import get_transform
+from StyleGAN.Components.data.datasets import DirectorioDatasetConCarpetas, DirectorioDatasetSinCarpetas
+from StyleGAN.Components.data.transforms import get_transform
 
 
 def update_average(model_tgt, model_src, beta):
@@ -43,11 +43,11 @@ def make_dataset(resolution, folder, img_dir, conditional=False):
         Dataset = ImageFolder
     else:
         if folder:
-            Dataset = FoldersDistributedDataset
+            Dataset = DirectorioDatasetConCarpetas
         else:
-            Dataset = FlatDirectoryImageDataset
+            Dataset = DirectorioDatasetSinCarpetas
 
-    transforms = get_transform(new_size=(resolution, resolution))
+    transforms = get_transform(difSize=(resolution, resolution))
     _dataset = Dataset(img_dir, transform=transforms)
 
     return _dataset

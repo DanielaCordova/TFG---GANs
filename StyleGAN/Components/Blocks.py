@@ -1,4 +1,4 @@
-from StyleGan.Components.Layers import *
+from StyleGAN.Components.Layers import *
 
 
 class InputBlock(nn.Module): ##Primer bloque 4x4
@@ -9,54 +9,52 @@ class InputBlock(nn.Module): ##Primer bloque 4x4
         self.const = nn.Parameter(torch.ones(1, nf, 4, 4))
         self.bias = nn.Parameter(torch.ones(nf))
 
-        self.epi1 = CapaS_StyleMode(nf, dlatent_size)
+        self.adain1 = CapaS_StyleMode(nf, dlatent_size)
 
         self.conv = Conv2dPropia(nf, nf)
-        self.epi2 = CapaS_StyleMode(nf, dlatent_size)
+        self.adain2 = CapaS_StyleMode(nf, dlatent_size)
 
     def forward(self, dlatents_in_range):
         batch_size = dlatents_in_range.size(0)
 
         x = self.const.expand(batch_size, -1, -1, -1)
         x = x + self.bias.view(1, -1, 1, 1)
-        x = self.epi1(x, dlatents_in_range[:, 0])
+        x = self.adain1(x, dlatents_in_range[:, 0])
         x = self.conv(x)
-        x = self.epi2(x, dlatents_in_range[:, 1])
+        x = self.adain2(x, dlatents_in_range[:, 1])
 
         return x
 
 
 class Upscale2d(nn.Module):
     @staticmethod
-    def upscale2d(x, factor=2, gain=1):
-        assert x.dim() == 4
-        if gain != 1:
-            x = x * gain
-        if factor != 1:
+    def upscale2d(x, sizeIncrease=2, numMul=1):
+        if numMul != 1:
+            x = x * numMul
+        if sizeIncrease != 1:
             shape = x.shape
-            x = x.view(shape[0], shape[1], shape[2], 1, shape[3], 1).expand(-1, -1, -1, factor, -1, factor)
-            x = x.contiguous().view(shape[0], shape[1], factor * shape[2], factor * shape[3])
+            x = x.view(shape[0], shape[1], shape[2], 1, shape[3], 1).expand(-1, -1, -1, sizeIncrease, -1,
+                                                                            sizeIncrease)  ##Mismo tensor pero distinta forma y expandimos las nuevas dimensaiones
+            x = x.contiguous().view(shape[0], shape[1], sizeIncrease * shape[2],
+                                    sizeIncrease * shape[3])  ## aumetamos as dimensiones DimxDim
         return x
 
-    def __init__(self, factor=2, gain=1):
+    def __init__(self, sizeIncrease=2, numMul=1):
         super().__init__()
-        assert isinstance(factor, int) and factor >= 1
-        self.gain = gain
-        self.factor = factor
+        self.numMul = numMul
+        self.sizeIncrease = sizeIncrease
 
     def forward(self, x):
-        return self.upscale2d(x, factor=self.factor, gain=self.gain)
+        return self.upscale2d(x, sizeIncrease=self.sizeIncrease, numMul=self.numMul)
+
 
 
 class Conv2dUPPropia(nn.Module):
-    """Conv layer with equalized learning rate and custom learning rate multiplier."""
-
-    def __init__(self, input_channels, output_channels, gain=np.sqrt(2)):
+    def __init__(self, input_channels, output_channels, numMul=np.sqrt(2)):
         super().__init__()
         self.kernel_size = 3
-        self.w_mul = gain * (input_channels * self.kernel_size ** 2) ** (-0.5)
-        self.weight = torch.nn.Parameter(
-            torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
+        self.weightScale = pow(numMul * (pow(input_channels * self.kernel_size, 2)),(-0.5))
+        self.weight = torch.nn.Parameter(torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
         self.bias = torch.nn.Parameter(torch.zeros(output_channels))
         self.upsample = Upscale2d()
         self.b_mul = 1
@@ -65,16 +63,11 @@ class Conv2dUPPropia(nn.Module):
         bias = self.bias
         if bias is not None:
             bias = bias * self.b_mul
-        if min(x.shape[2:]) * 2 >= 128:
-            w = self.weight * self.w_mul
-            w = w.permute(1, 0, 2, 3)
-            # probably applying a conv on w would be more efficient. also this quadruples the weight (average)?!
-            w = F.pad(w, [1, 1, 1, 1])
-            w = w[:, :, 1:, 1:] + w[:, :, :-1, 1:] + w[:, :, 1:, :-1] + w[:, :, :-1, :-1]
-            x = F.conv_transpose2d(x, w, stride=2, padding=(w.size(-1) - 1) // 2)
-        else:
-            x = self.upsample(x)
-            x = F.conv2d(x, self.weight * self.w_mul, None, padding=self.kernel_size // 2)
+
+        ##Primero aumentamos
+        x = self.upsample(x)
+        #Luego Conv2d
+        x = F.conv2d(x, self.weight * self.weightScale, None, padding=self.kernel_size // 2)
 
         if bias is not None:
             x = x + bias.view(1, -1, 1, 1)
@@ -82,12 +75,11 @@ class Conv2dUPPropia(nn.Module):
         return x
 
 class Conv2DownPropia(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=3, gain=np.sqrt(2)):
+    def __init__(self, input_channels, output_channels, kernel_size=3, numMul=np.sqrt(2)):
         super().__init__()
         self.kernel_size = kernel_size
-        self.w_mul = gain * (input_channels * self.kernel_size ** 2) ** (-0.5)
-        self.weight = torch.nn.Parameter(
-            torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
+        self.weightScale = numMul * (input_channels * self.kernel_size ** 2) ** (-0.5)
+        self.weight = torch.nn.Parameter(torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
         self.bias = torch.nn.Parameter(torch.zeros(output_channels))
         self.downscale = Downscale2d()
         self.b_mul = 1
@@ -96,24 +88,13 @@ class Conv2DownPropia(nn.Module):
         bias = self.bias
         if bias is not None:
             bias = bias * self.b_mul
-        have_convolution=False
+
         downscale = self.downscale
         intermediate = None
-        if downscale is not None and min(x.shape[2:]) >= 128:
-            w = self.weight * self.w_mul
-            w = F.pad(w, [1, 1, 1, 1])
-            # in contrast to upscale, this is a mean...
-            w = (w[:, :, 1:, 1:] + w[:, :, :-1, 1:] + w[:, :, 1:, :-1] + w[:, :, :-1, :-1]) * 0.25  # avg_pool?
-            x = F.conv2d(x, w, stride=2, padding=(w.size(-1) - 1) // 2)
-            have_convolution = True
-            downscale = None
-        elif downscale is not None:
+        if  downscale is not None:
             intermediate = downscale
 
-        if not have_convolution and intermediate is None:
-            return F.conv2d(x, self.weight * self.w_mul, bias, padding=self.kernel_size // 2)
-        elif not have_convolution:
-            x = F.conv2d(x, self.weight * self.w_mul, None, padding=self.kernel_size // 2)
+        x = F.conv2d(x, self.weight * self.weightScale, None, padding=self.kernel_size // 2)
 
         if intermediate is not None:
             x = intermediate(x)
@@ -124,14 +105,12 @@ class Conv2DownPropia(nn.Module):
         return x
 
 class Conv2dPropia(nn.Module):
-    """Conv layer with equalized learning rate and custom learning rate multiplier."""
 
     def __init__(self, input_channels, output_channels, gain=np.sqrt(2), kernel_size=3):
         super().__init__()
         self.kernel_size = kernel_size
-        self.w_mul =  gain * (input_channels * self.kernel_size ** 2) ** (-0.5)
-        self.weight = torch.nn.Parameter(
-            torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
+        self.weightScale = gain * (input_channels * self.kernel_size ** 2) ** (-0.5)
+        self.weight = torch.nn.Parameter( torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
         self.bias = torch.nn.Parameter(torch.zeros(output_channels))
         self.b_mul = 1
 
@@ -139,7 +118,7 @@ class Conv2dPropia(nn.Module):
         bias = self.bias
         if bias is not None:
             bias = bias * self.b_mul
-        x = F.conv2d(x, self.weight * self.w_mul, None, padding=self.kernel_size // 2)
+        x = F.conv2d(x, self.weight * self.weightScale, None, padding=self.kernel_size // 2)
 
         if bias is not None:
             x = x + bias.view(1, -1, 1, 1)
@@ -165,8 +144,6 @@ class GSynthesisBlock(nn.Module):
     def __init__(self, in_channels, out_channels,  dlatent_size):
         super().__init__()
         self.kernel_size = 3
-
-
 
         self.conv0_up = Conv2dUPPropia(in_channels, out_channels)
 

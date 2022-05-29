@@ -24,8 +24,8 @@ from torch.nn.functional import interpolate
 from torch.nn.modules.sparse import Embedding
 from torchvision import models
 from torchsummary import summary
-from StyleGan.Components.Layers import *
-from StyleGan.Components.Blocks import *
+from StyleGAN.Components.Layers import *
+from StyleGAN.Components.Blocks import *
 
 class GMapping(nn.Module):
 
@@ -46,13 +46,13 @@ class GMapping(nn.Module):
             layers.append(PixelNormLayer())
 
 
-        layers.append(EqualizedLinearPropia(self.latent_size, self.mapping_fmaps,gain=np.sqrt(2), lrmul=mapping_lrmul))
+        layers.append(EqualizedLinearPropia(self.latent_size, self.mapping_fmaps, numMul=np.sqrt(2), lrmul=mapping_lrmul))
         layers.append(nn.LeakyReLU(negative_slope=0.2))
 
         for layer in range(1, mapping_layers): ##las otras 8 capas
             fmaps_in = self.mapping_fmaps
             fmaps_out = self.dlatent_size if layer == mapping_layers - 1 else self.mapping_fmaps
-            layers.append(EqualizedLinearPropia(fmaps_in, fmaps_out, gain=np.sqrt(2), lrmul=mapping_lrmul))
+            layers.append(EqualizedLinearPropia(fmaps_in, fmaps_out, numMul=np.sqrt(2), lrmul=mapping_lrmul))
             layers.append(nn.LeakyReLU(negative_slope=0.2))
 
         self.map = nn.Sequential(*layers)
