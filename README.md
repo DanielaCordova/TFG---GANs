@@ -33,18 +33,28 @@ The Generator produces an image that tries to mimic a real one, and then, that i
 
 
 
-## Github Structure
-
+# Github Structure
 
 The repository is structured the following way:
-    
-Each Model is stored on its own folder, these folders contain 4 main files: 
-    
-- {Model}Generator.py : this contains the class of the generator for said model.
-        
-- {Model}Discrimitor.py : the same as the previous one, this file contains the discriminator for the models.
-        
-- trining{Model}.py : this file contains the code capable of training these models, all the training details can be changed within it, such as the size of the image generated, the dataset used for its training, and if needed the previously trained model that it loads for it to resume its training from a previous run, among others.
-        
-- generateSamples.py : this file contains the code capable of generating samples from a previously trained model. Like the last file, within it you can change the aspects of the generated images to an extent, as it has to match the generator that it is using.
+
+## Models 
+There are four GANs with each implementation in the folder with its name:
+
+- [SimpleGAN](SimpleGAN)
+- [ConditionalGAN](ConditionalGAN)
+- [StyleGAN](StyleGAN)
+- [CycleGAN](CycleGAN)
+
+Each with its own README file where its code structure and basic description are explained.
+
+## Files 
+This main folder additionally contains:
+
+- [Constants.py](Constants.py): Which has the constant values that the other files can use.
+- [CustomLayers.py](CustomLayers.py): Implements custom layers for both the Generators and Discriminators of each model.
+- [Blocks.py](Blocks.py): Which has the declaration of most types of blocks that the models Generators and Discriminators are made of.
+- [ImageFunctions.py](ImageFunctions.py): Which implements all the logic that is used for handling images and datasets.
+- [Training.py](Training.py): This implements all the functions needed for training each model.
+
+
 
