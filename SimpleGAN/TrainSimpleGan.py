@@ -16,10 +16,10 @@ import os
 from torch.utils.data import DataLoader
 
 
-load_folder = None
-gen_load = None
-disc_load = None
-load = False
+load = True
+load_folder = 'models'
+gen_load = 'generator.tar'
+disc_load = 'discriminator.tar'
 
 # Modulos
 disc = SimpleDiscriminator.DiscriminadorGAN('cuda',1,40)
@@ -47,5 +47,5 @@ criterion = nn.BCEWithLogitsLoss()
 n_epochs = 100
 display_step = int(2900/Constants.BATCH_SIZE)
 checkpoint_step = int(2900/Constants.BATCH_SIZE)
-trainer = Training.Normal_Trainer(dataLoader, gen, disc, criterion,display_step, training_dir, 'cuda', True, True, checkpoint_step, time_steps = True, time_epochs = True)
+trainer = Training.Normal_Trainer(dataLoader, gen, disc, criterion,display_step, training_dir, 'cuda', True, True, checkpoint_step, load, load_folder, gen_load, disc_load, time_steps = True, time_epochs = True)
 trainer.train_for_epochs(n_epochs)

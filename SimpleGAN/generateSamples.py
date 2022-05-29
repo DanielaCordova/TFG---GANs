@@ -20,9 +20,9 @@ from torch.utils.data import DataLoader
 
 
 load = True
-load_folder = 'GANTraining'
-gen_load = 'gen_114.tar'
-disc_load = 'disc_114.tar'
+load_folder = 'models'
+gen_load = 'generator.tar'
+disc_load = 'discriminator.tar'
 
 
 # Modulos
@@ -33,7 +33,7 @@ gen = SimpleGenerator.GeneradorGAN(40, numChan=1)
 # Carpeta para resultados
 
 training_dir = 'GANTraining'
-#ños.mkdir(training_dir)
+#os.mkdir(training_dir)
 
 # Dataset
 

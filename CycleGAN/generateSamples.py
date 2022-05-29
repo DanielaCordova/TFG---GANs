@@ -34,13 +34,13 @@ recon_criterion = nn.L1Loss()
 # Carpeta para resultados
 
 training_dir = 'CycleTraining'
-load_dir = 'CycleTraining'
-gen_disc_load = 'cycleGAN_0.pth'
+load_dir = 'models'
+gen_disc_load = 'cycleGAN.pth'
 
 # Dataset
 
 ds1 = torch.load('PreprocessDatasets/preprocessedApple.pt')
-ds2 = torch.load('PreprocessDatasets/preprocessedBanana.pt')
+ds2 = torch.load('PreprocessDatasets/preprocessedPear.pt')
 
 dataLoader1 = DataLoader(ds1, batch_size=Constants.BATCH_SIZE, shuffle=True)
 dataLoader2 = DataLoader(ds2, batch_size=Constants.BATCH_SIZE, shuffle=True)

@@ -34,8 +34,8 @@ recon_criterion = nn.L1Loss()
 # Carpeta para resultados
 
 training_dir = 'CycleTraining'
-load_dir = 'CycleTraining'
-gen_disc_load = 'cycleGAN_122.pth'
+load_dir = 'models'
+gen_disc_load = 'cycleGAN.pth'
 
 # Dataset
 

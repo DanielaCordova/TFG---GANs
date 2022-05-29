@@ -49,7 +49,7 @@ os.mkdir(training_dir)
 
 # Dataset
 
-ds = torch.load('preprocessed15ClassesDataset.pt')
+ds = torch.load('PreprocessDatasets/preprocessed15ClassesDataset.pt')
 
 dataLoader = DataLoader(ds, batch_size=Constants.BATCH_SIZE, shuffle=True)
 
