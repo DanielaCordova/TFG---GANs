@@ -239,7 +239,7 @@ class Conv2dUPPropia(nn.Module):
 class GMapping(nn.Module):
 
     def __init__(self, latent_size=512, dlatent_size=512, dlatent_broadcast=None,
-                 mapping_layers=8, mapping_fmaps=512, mapping_lrmul=0.01,
+                 mapping_layers=4, mapping_fmaps=512, mapping_lrmul=0.01,
                  normalize_latents=True):
 
         super().__init__()
@@ -327,7 +327,7 @@ class GSynthesisBlock(nn.Module):
 
 class GSynthesis(nn.Module):
 
-    def __init__(self, dlatent_size=512, num_channels=3, resolution=1024,
+    def __init__(self, dlatent_size=512, num_channels=3, resolution=128,
                  fmap_base=8192, fmap_decay=1.0, fmap_max=512,
                  use_styles=True, structure='linear'):
 
@@ -336,7 +336,7 @@ class GSynthesis(nn.Module):
         def nf(stage):
             return min(int(fmap_base / (2.0 ** (stage * fmap_decay))), fmap_max)
 
-        self.structure = structure
+
 
         ##Calculo de la resolucion, produndiad y capas
         resolution_log2 = int(np.log2(resolution))
@@ -403,10 +403,10 @@ class Generator(nn.Module):
     def __init__(self, resolution, latent_size=512, dlatent_size=512,
                  conditional=False, n_classes=0, truncation_psi=0.7,
                  truncation_cutoff=8, dlatent_avg_beta=0.995,
-                 style_mixing_prob=0.9, **kwargs):
+                 style_mixing_prob=0.9):
 
         super(Generator, self).__init__()
-
+        self.alpha = 1
         if conditional:  ##Agregarle parte conditional a la gan
             self.class_embedding = nn.Embedding(n_classes, latent_size)
             latent_size *= 2
@@ -416,9 +416,10 @@ class Generator(nn.Module):
 
         # Creamos los componentes del generador
         self.num_layers = (int(np.log2(resolution)) - 1) * 2
-        self.g_mapping = GMapping(latent_size, dlatent_size, dlatent_broadcast=self.num_layers,
-                                  **kwargs)  ##Bloque para el mapeo
-        self.g_synthesis = GSynthesis(resolution=resolution, **kwargs)   ##  Bloque para la sintesis
+        self.g_mapping = GMapping(latent_size, dlatent_size, dlatent_broadcast=self.num_layers
+                                  )  ##Bloque para el mapeo
+        self.g_synthesis = GSynthesis(resolution=resolution
+                                      )   ##  Bloque para la sintesis
 
         if truncation_psi > 0:
             self.truncation = Truncation(avg_latent=torch.zeros(dlatent_size),  ##Truncar los valores extremos
@@ -436,7 +437,7 @@ class Generator(nn.Module):
         else:  ##Para gerador condicional
             embedding = self.class_embedding(labels_in)
             latents_in = torch.cat([latents_in, embedding], 1)
-
+        self.alpha = alpha
         dlatents_in = self.g_mapping(latents_in)
 
         if self.training:
@@ -460,6 +461,6 @@ class Generator(nn.Module):
             if self.truncation is not None:
                 dlatents_in = self.truncation(dlatents_in)
 
-        fake_images = self.g_synthesis(dlatents_in, depth, alpha)
+        fake_images = self.g_synthesis(dlatents_in, depth, self.alpha)
 
         return fake_images

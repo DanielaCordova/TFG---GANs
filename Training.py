@@ -1,3 +1,5 @@
+import datetime
+import timeit
 from abc import abstractclassmethod
 from venv import create
 import tqdm
@@ -9,13 +11,19 @@ import torch
 import ImageFunctions
 import matplotlib.pyplot as plt
 import os
-from datetime import datetime
+
 from tqdm.auto import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import time
+import copy
+
+from StyleGan.Components import update_average, Losses
+from StyleGan.Components.data import get_data_loader
+
+
 
 def graph_GANS_losses(x, ejeX, title, dir, save, show):
 
@@ -639,27 +647,68 @@ class Cond_Trainer(GAN_Trainer):
         
 
 class Style_Prog_Trainer:
-    def __init__(self, dataset, generator, discriminator, criterion, dir, verb, prog, device, 
-    checksave = False, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = True, time_epochs = True):
-        
-        self.disc = discriminator
-        self.gen  = generator
-        self.criterion = criterion
+    def __init__(self, generator, discriminator, resolution, num_channels, latent_size,
+                 conditional=False,
+                 n_classes=0, loss="logistic", drift=0.001, d_repeats=1,
+                 use_ema=True, ema_decay=0.999, device=torch.device("cuda"),
+                    checksave = False, load = False, load_dir = None, gen_load = None, disc_load = None, time_steps = True, time_epochs = True,
+                 ):
+        # Check conditional validity
+        if conditional:
+            assert n_classes > 0, "Conditional GANs require n_classes > 0"
+
+        self.depth = int(np.log2(resolution)) - 1  ##Hasta la profundidad que se puede llegar (desde 4x4 a 128x128)
+        self.latent_size = latent_size
+        self.device = device
+        self.d_repeats = d_repeats
+        self.conditional = conditional
+        self.n_classes = n_classes
+        self.structure = 'linear'
+        num_epochs = []
+        self.checksave=checksave
+        self.use_ema = use_ema
+        self.ema_decay = ema_decay
+
+        # Generator and  Discriminator
+        self.gen = generator(
+            resolution=resolution,
+            conditional=self.conditional,
+            n_classes=self.n_classes).to(self.device)
+
+        self.dis = discriminator(num_channels=num_channels,
+                                 resolution=resolution,
+
+                                 conditional=self.conditional,
+                                 n_classes=self.n_classes
+                                 ).to(self.device)
+
 
         self.device = device
+        # define the loss function used for training the GAN
+        self.drift = drift
+        self.loss = self.lossFunction(loss)
 
-        self.dataset = dataset
+        # Use of ema
+        if self.use_ema:
+            # create a shadow copy of the generator
+            self.gen_shadow = copy.deepcopy(self.gen)
+            # updater function:
+            self.ema_updater = update_average
+            # initialize the gen_shadow weights equal to the weights of gen
+            self.ema_updater(self.gen_shadow, self.gen, beta=0)
+
 
         self.resdir = dir
         self.log_step = 0
 
         self.iter = 0
 
-        self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=Constants.LR, betas=(0, 0.99))
-        self.disc_opt = torch.optim.Adam(self.disc.parameters(), lr=Constants.LR,  betas=(0, 0.99))
+        # Optimizers for the discriminator and generator
+        self.gen_optim = torch.optim.Adam(self.gen.parameters(), lr=0.003, betas=(0, 0.99), eps=1e-8)
+        self.dis_optim = torch.optim.Adam(self.dis.parameters(), lr=0.003, betas=(0, 0.99), eps=1e-8)
         self.downsampler = nn.AvgPool2d(4,2,1)
 
-        self.verb = verb
+
         self.gen_loss = []
         self.gen_loss_plot = []
         self.disc_loss = []
@@ -700,15 +749,26 @@ class Style_Prog_Trainer:
         if checksave:
             self.save_step = 0
 
-        if prog :
-            self.increase_alfa_step = 0
-            self.alfa_step = 0
-            self.prog = prog
+
         else:
             self.prog = False
             self.alfa_step = 0
             self.increase_alfa_step = 0
+        # Check conditional validity
+        if conditional:
+            assert n_classes > 0, "Conditional GANs require n_classes > 0"
 
+    def lossFunction(self, loss):
+        if isinstance(loss, str):
+            loss = loss.lower()  # lowercase the string
+
+            if not self.conditional:
+                if loss == "logistic":
+                    loss_func = Losses.LogisticGAN(self.dis)
+            else:
+                if loss == "conditional-loss":
+                    loss_func = Losses.ConditionalGANLoss(self.dis)
+        return loss_func
 
     def enable_training(self, model, flag):
         for p in model.parameters():
@@ -808,63 +868,303 @@ class Style_Prog_Trainer:
         self.plot_epoch_time()
 
 
-    def train_for_epochs(self, epochs_for_depth, batch_size_for_depth):
-        ini = 0
-        self.num_ep = 0
-        while ini < len(epochs_for_depth) and self.act_epoch > epochs_for_depth[ini]  :
-            self.num_ep = self.num_ep + epochs_for_depth[ini]
-            self.act_epoch = self.act_epoch - epochs_for_depth[ini]
-            i = i + 1
+    def train_for_epochs(self, dataset, num_workers, epochs, batch_sizes, logger, output,
+              num_samples=36, start_depth=0, feedback_factor=100, checkpoint_factor=1):
+        # turn the generator and discriminator into train mode
+        self.initial__time = time.time()
+        self.gen_loss = []
+        self.gen_loss_plot = []
+        self.disc_loss = []
+        self.disc_loss_plot = []
+        self.ejeX = []
 
-        num_ep = self.num_ep + epochs_for_depth[ini] - self.act_epoch
-        epochs_for_depth[ini] = epochs_for_depth[ini] - self.act_epoch
+        self.step_times = []
+        self.num_steps = []
+        self.iter = 0
+        self.epoch_times = []
+        self.num_epochs = []
+        self.ejeX = []
+        self.act = 0
 
-        for i in range(ini, len(epochs_for_depth)):
-            self.initial__time = time.time()
-            self.batch_size = batch_size_for_depth[i]
-            self.dataloader = DataLoader(self.dataset, self.batch_size, shuffle = True)
-            self.display_step = int(len(self.dataset)/self.batch_size)
-            self.increase_alfa_step = 8
-            self.alfa_step = (1 / (epochs_for_depth[i] * len(self.dataloader))) * self.increase_alfa_step
-            self.log_step = int(len(self.dataset) / self.batch_size)
-            self.display_step = int(len(self.dataset)/ self.batch_size)
-            self.save_step = int(len(self.dataset)/ self.batch_size)
+        self.gen_loss = []
+        self.dis_loss = []
+        self.gen_plot_loss = []
+        self.dis_plot_loss = []
+        self.gen.train()
+        self.dis.train()
+        if self.use_ema:
+            self.gen_shadow.train()
 
-            print(" ## Training data for size {} ".format(self.disc.getinSize()))
-            print("      Epochs for depth {} = {}".format(i, epochs_for_depth[i]))
-            print("      Batch size for depth {} = {}".format(i, batch_size_for_depth[i]))
-            print("      Increase_alfa_step for depth {} = {}".format(i, self.increase_alfa_step))
-            print("      Alfa step for depth {} = {}".format(i, self.alfa_step))
+        # Global time counter
+        global_time = time.time()
 
-            for _ in range(0, epochs_for_depth[i]):
-                self.epoch(self.num_ep)
+        # For debugging
+        fixed_input = torch.randn(num_samples, self.latent_size).to(self.device)
+
+        fixed_labels = None
+        if self.conditional:
+            self.fixed_labels = torch.linspace(
+                0, self.n_classes - 1, num_samples).to(torch.int64).to(self.device)
+        # config depend on structure
+        logger.info("Starting the training process ... \n")
+        # start_depth = self.depth - 1
+        step = 1  # counter for number of iterations
+
+        for current_depth in range(start_depth, self.depth):   ##Profundidad actual
+
+            current_res = np.power(2, current_depth + 2)
+            logger.info("Depth: %d", current_depth + 1)
+            logger.info("Resolution: %d x %d" % (current_res, current_res))
+
+            logger.info("      Epochs for depth {} = {}".format(current_depth, epochs[current_depth]))
+            logger.info("      Batch size for depth {} = {}".format(current_depth, batch_sizes[current_depth]))
+            #logger.info("      Increase_alfa_step for depth {} = {}".format(current_depth, self.increase_alfa_step))
+            #logger.info("      Alfa step for depth {} = {}".format(current_depth, self.alfa_step))
+            self.depth2 = current_depth
+            ticker = 1
+
+            ##Cargamos datos
+            data = get_data_loader(dataset, batch_sizes[current_depth], num_workers)
+            self.num_ep=0
+            for epoch in range(1, epochs[current_depth] + 1):
+                start = timeit.default_timer()  # record time at the start of epoch
+                self.epoch = epoch
+                num_epochs = epoch
+                logger.info("Epoch: [%d]" % epoch)
+                # total_batches = len(iter(data))
+                total_batches = len(data)
+
+                fade_point = int((50 / 100)
+                                 * epochs[current_depth] * total_batches)
+
+                for i, batch in enumerate(data, 1):
+                    # calculate the alpha for fading in the layers
+                    self.alpha = ticker / fade_point if ticker <= fade_point else 1
+
+                    # extract current batch of data for training
+                    if self.conditional:
+                        images, labels = batch
+                        labels = labels.to(self.device)
+                    else:
+                        images = batch
+                        labels = None
+
+                    images = images.to(self.device)
+                    self.inputShape=images.shape
+                    gan_input = torch.randn(images.shape[0], self.latent_size).to(self.device)
+
+                    # optimize the discriminator:
+                    dis_loss = self.optimize_discriminator(gan_input, images, current_depth,  self.alpha, labels)
+                    self.dl = dis_loss
+                    # optimize the generator:
+                    gen_loss = self.optimize_generator(gan_input, images, current_depth,  self.alpha, labels)
+                    self.gl = gen_loss
+
+                    self.total_batches = total_batches
+                    self.feedback_factor = feedback_factor
+                    # provide a loss feedback
+
+                    if i % int(total_batches / feedback_factor + 1) == 0 or i == 1:
+                        elapsed = time.time() - global_time
+                        elapsed = str(datetime.timedelta(seconds=elapsed)).split('.')[0]
+                        logger.info(
+                            "Elapsed: [%s] Step: %d  Batch: %d  D_Loss: %f  G_Loss: %f"
+                            % (elapsed, step, i, dis_loss, gen_loss))
+
+                        # create a grid of samples and save it
+                        os.makedirs(os.path.join(output, 'samples'), exist_ok=True)
+                        gen_img_file = os.path.join(output, 'samples', "gen_" + str(current_depth)
+                                                    + "_" + str(epoch) + "_" + str(i) + ".png")
+
+                        if self.checksave:
+                            self.saveCheckpoint(epoch)
+                        with torch.no_grad():
+                            self.create_grid(
+                                samples=self.gen(fixed_input, current_depth,  self.alpha,
+                                                 labels_in=fixed_labels).detach() if not self.use_ema
+                                else self.gen_shadow(fixed_input, current_depth,  self.alpha,
+                                                     labels_in=fixed_labels).detach(),
+                                scale_factor=int(
+                                    np.power(2, self.depth - current_depth - 1)) if self.structure == 'linear' else 1,
+                                img_file=gen_img_file,
+                            )
+                        self.plot_losses()
+                        self.plot_step_time()
+
+                    self.iter = self.iter + 1
+
+                    # increment the alpha ticker and the step
+                    ticker += 1
+                    step += 1
+                logger.info(" ## Training data for size {} ".format(self.inputShape))
+                elapsed = timeit.default_timer() - start
+                elapsed = str(datetime.timedelta(seconds=elapsed)).split('.')[0]
+                logger.info("Time taken for epoch: %s\n" % elapsed)
                 self.num_ep = self.num_ep + 1
-            
-            self.gen.increaseDepth()
-            self.disc.increaseDepth()
 
-            print("Tamanio = " + str(self.disc.getinSize()))
+    def optimize_discriminator(self, noise, real_batch, depth, alpha, labels=None):
+        """
+        performs one step of weight update on discriminator using the batch of data
+
+        :param noise: input noise of sample generation
+        :param real_batch: real samples batch
+        :param depth: current depth of optimization
+        :param alpha: current alpha for fade-in
+        :return: current loss (Wasserstein loss)
+        """
+
+        real_samples = self.__progressive_down_sampling(real_batch, depth, alpha)
+
+        loss_val = 0
+        for _ in range(self.d_repeats):
+            # generate a batch of samples
+            fake_samples = self.gen(noise, depth, alpha, labels).detach()
+
+            if not self.conditional:
+                loss = self.loss.dis_loss(
+                    real_samples, fake_samples, depth, alpha)
+            else:
+                loss = self.loss.dis_loss(
+                    real_samples, fake_samples, labels, depth, alpha)
+            # optimize discriminator
+            self.dis_optim.zero_grad()
+            loss.backward()
+            self.dis_optim.step()
+
+            loss_val += loss.item()
+
+        return loss_val / self.d_repeats
+
+    def optimize_generator(self, noise, real_batch, depth, alpha, labels=None):
 
 
-    def plot_losses(self):
+        real_samples = self.__progressive_down_sampling(real_batch, depth, alpha)
 
-        self.disc_loss_plot.append(sum(self.disc_loss[-self.log_step:])/self.log_step)
-        self.gen_loss_plot.append(sum(self.gen_loss[-self.log_step:])/self.log_step)
+        fake_samples = self.gen(noise, depth, alpha, labels)
 
-        title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
+        # Change this implementation for making it compatible for relativisticGAN
+        if not self.conditional:
+            loss = self.loss.gen_loss(real_samples, fake_samples, depth, alpha)
+        else:
+            loss = self.loss.gen_loss(
+                real_samples, fake_samples, labels, depth, alpha)
+
+        # optimize the generator
+        self.gen_optim.zero_grad()
+        loss.backward()
+        # Gradient Clipping
+        nn.utils.clip_grad_norm_(self.gen.parameters(), max_norm=10.)
+        self.gen_optim.step()
+
+        # if use_ema is true, apply ema to the generator parameters
+        if self.use_ema:
+            self.ema_updater(self.gen_shadow, self.gen, self.ema_decay)
+
+        # return the loss value
+        return loss.item()
+    def __progressive_down_sampling(self, real_batch, depth, alpha):
+        # down_sample the real_batch for the given depth
+        down_sample_factor = int(np.power(2, self.depth - depth - 1))
+        prior_down_sample_factor = max(int(np.power(2, self.depth - depth)), 0)
+
+        ds_real_samples = nn.AvgPool2d(down_sample_factor)(real_batch)
+
+        if depth > 0:
+            prior_ds_real_samples = F.interpolate(nn.AvgPool2d(prior_down_sample_factor)(real_batch), scale_factor=2)
+        else:
+            prior_ds_real_samples = ds_real_samples
+
+        # real samples are a combination of ds_real_samples and prior_ds_real_samples
+        real_samples = (alpha * ds_real_samples) + ((1 - alpha) * prior_ds_real_samples)
+
+        # return the so computed real_samples
+        return real_samples
+
+
+
+    @staticmethod
+    def create_grid(samples, scale_factor, img_file):
+        """
+        utility function to create a grid of GAN samples
+
+        :param samples: generated samples for storing
+        :param scale_factor: factor for upscaling the image
+        :param img_file: name of file to write
+        :return: None (saves a file)
+        """
+        from torch.nn.functional import interpolate
+        from torchvision.utils import save_image
+
+        # upsample the image
+        if scale_factor > 1:
+            samples = interpolate(samples, scale_factor=scale_factor)
+
+        # save the images:
+        save_image(samples, img_file, nrow=int(np.sqrt(len(samples))),
+                   normalize=True, scale_each=True, pad_value=128, padding=1)
+
+    def plot_epoch_time(self):
+        epoch_time = (time.time() - self.initial__time)
+        self.epoch_times.append(epoch_time)
+        self.num_epochs.append(self.epoch)
+
+        title = str(self.epoch_times[-1]) + " seconds taken"
+
+        if self.iter % int(self.total_batches / self.feedback_factor + 1) == 0 or self.iter == 1:
+            print(title)
+
+            plt.plot(self.num_epochs, self.epoch_times, label="Epoch Time")
+
+            plt.title(title)
+            plt.legend()
+
+            plt.savefig(
+                "plot_epoch_time" + str(self.depth2) + "_epoch" + str(self.epoch) + "_iter" + str(self.iter) + '.svg')
+
+            plt.clf()
+
+    def plot_step_time(self):
+
+        step_time = (time.time() - self.initial__time)
+        self.step_times.append(step_time)
+        self.num_steps.append(self.iter)
+
+        title = str(self.step_times[-1]) + " seconds to take " + str(self.iter) + " steps"
+
+        ##if self.iter % int(self.total_batches / self.feedback_factor + 1) == 0 or self.iter == 1:
         print(title)
-        
-        self.ejeX.append(self.iter)
-        arEjeX = np.array(self.ejeX)
-        plt.plot(arEjeX, np.array(self.gen_loss_plot), label = "Gen Loss")
-        plt.plot(arEjeX, np.array(self.disc_loss_plot), label = "Disc Loss")
+
+        # Time visualization
+
+        plt.plot(self.num_steps, self.step_times, label="Step Time")
 
         plt.title(title)
         plt.legend()
 
-        os.chdir(self.resdir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + '.pdf')
-        os.chdir('..')
+        plt.savefig(
+            "plot_step_time" + str(self.depth2) + "_epoch" + str(self.epoch) + "_iter" + str(self.iter) + '.svg')
+
+        plt.clf()
+
+    def plot_losses(self):
+
+        self.disc_loss_plot.append(self.dl)
+        self.gen_loss_plot.append(self.gl)
+
+        self.ejeX.append(self.iter)
+        arEjeX = np.array(self.ejeX)
+
+        ## if self.iter % int(self.total_batches / self.feedback_factor + 1) == 0 or self.iter == 1:
+        title = "Gen Loss: " + str(self.gen_loss_plot[-1]) + " Disc Loss: " + str(self.disc_loss_plot[-1])
+        print(title)
+        plt.plot(arEjeX, np.array(self.gen_loss_plot), label="Gen Loss")
+        plt.plot(arEjeX, np.array(self.disc_loss_plot), label="Disc Loss")
+
+        plt.title(title)
+        plt.legend()
+
+        plt.savefig(
+            "plot_losses_depth" + str(self.depth2) + "_epoch" + str(self.epoch) + "_iter" + str(self.iter) + '.svg')
 
         plt.clf()
     
@@ -882,8 +1182,8 @@ class Style_Prog_Trainer:
 
         torch.save({
         'epoch' : epoch,
-        'alfa' : self.gen.getAlfa(),
-        'depth': self.gen.getDepth(),
+        'alfa' : self.alpha,
+        'depth': self.depth,
         'model_state_dict' : self.gen.state_dict(), 
         'optimizer_state_dict' : self.gen_opt.state_dict(),
         'loss' : self.gen_loss[-1]
@@ -891,8 +1191,8 @@ class Style_Prog_Trainer:
 
         torch.save({
             'epoch' : epoch,
-            'alfa' : self.disc.getAlfa(),
-            'depth': self.disc.getDepth(),
+            'alfa' : self.alpha,
+            'depth': self.depth,
             'model_state_dict' : self.disc.state_dict(),
             'optimizer_state_dict' : self.disc_opt.state_dict(),
             'loss' : self.disc_loss[-1]
@@ -900,46 +1200,7 @@ class Style_Prog_Trainer:
 
         os.chdir('..')
         
-    def plot_epoch_time(self):
-        epoch_time = (time.time() - self.initial__time)
-        self.epoch_times.append(epoch_time)
-        self.num_epochs.append(self.num_ep)
 
-        title = str(self.epoch_times[-1]) + " seconds taken"
-        print(title)
-
-        plt.plot(self.num_epochs,self.epoch_times, label="Epoch Time")
-        
-        plt.title(title)
-        plt.legend()
-
-        os.chdir(self.resdir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.num_ep) + "epoch_times" + '.pdf')
-        os.chdir('..')
-
-        plt.clf()
-        
-    def plot_step_time(self):
-        
-        step_time = (time.time() - self.initial__time)
-        self.step_times.append(step_time)
-        self.num_steps.append(self.iter)
-
-        title = str(self.step_times[-1]) + " seconds to take " + str(self.iter) + " steps"
-        print(title)
-        
-        #Time visualization
-
-        plt.plot(self.num_steps, self.step_times, label="Step Time")
-        
-        plt.title(title)
-        plt.legend()
-
-        os.chdir(self.resdir)
-        plt.savefig(datetime.now().strftime("%d-%m")+" iter " + str(self.iter) + "step_times" + '.pdf')
-        os.chdir('..')
-
-        plt.clf()
 
 class HingeRelativisticLoss():
     
