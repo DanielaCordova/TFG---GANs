@@ -62,7 +62,7 @@ class Downscale2d(nn.Module):
 class EqualizedLinear(nn.Module):
     def __init__(self, input_size, output_size, numMul=2 ** 0.5, increaseWeightScale=False, lrmul=1, bias=True):
         super().__init__()
-        valScale = pow(numMul * input_size, (-0.5))
+        valScale = numMul * input_size**(-0.5)
 
         ##Values for out_features in Linear
         if increaseWeightScale:
@@ -71,6 +71,7 @@ class EqualizedLinear(nn.Module):
         else:
             numToMul = valScale / lrmul
             self.weightScale = lrmul
+
         self.weight = torch.nn.Parameter(torch.randn(output_size, input_size) * numToMul)
 
         ##Values for bias in Linear
@@ -82,6 +83,7 @@ class EqualizedLinear(nn.Module):
 
     def forward(self, x):
         bias = self.bias
+        w= self.weight
         if bias is not None:
             bias = bias * self.b_mul
         return F.linear(x, self.weight * self.weightScale, bias)
@@ -177,11 +179,13 @@ class NoiseLayer(nn.Module):
 
     def __init__(self, channels):
         super().__init__()
+
         self.weight = nn.Parameter(torch.zeros(channels))
         self.noise = None
 
     def forward(self, x, noise=None):
         ##Aplicar RandomNoise:
+        w=self.weight
         if noise is None and self.noise is None:
             noise = torch.randn(x.size(0), 1, x.size(2), x.size(3), device=x.device, dtype=x.dtype)
         elif noise is None:  ##Usar noise pre-establecido

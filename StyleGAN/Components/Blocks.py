@@ -53,8 +53,11 @@ class Conv2dUPPropia(nn.Module):
     def __init__(self, input_channels, output_channels, numMul=np.sqrt(2)):
         super().__init__()
         self.kernel_size = 3
-        self.weightScale = pow(numMul * (pow(input_channels * self.kernel_size, 2)),(-0.5))
-        self.weight = torch.nn.Parameter(torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
+        self.weightScale = numMul * (input_channels * self.kernel_size**2)**(-0.5)
+
+        self.weight = torch.nn.Parameter(
+            torch.randn(output_channels, input_channels, self.kernel_size, self.kernel_size))
+
         self.bias = torch.nn.Parameter(torch.zeros(output_channels))
         self.upsample = Upscale2d()
         self.b_mul = 1
@@ -63,7 +66,7 @@ class Conv2dUPPropia(nn.Module):
         bias = self.bias
         if bias is not None:
             bias = bias * self.b_mul
-
+        w=self.weight
         ##Primero aumentamos
         x = self.upsample(x)
         #Luego Conv2d
@@ -119,7 +122,7 @@ class Conv2dPropia(nn.Module):
         if bias is not None:
             bias = bias * self.b_mul
         x = F.conv2d(x, self.weight * self.weightScale, None, padding=self.kernel_size // 2)
-
+        w=self.weight
         if bias is not None:
             x = x + bias.view(1, -1, 1, 1)
         return x

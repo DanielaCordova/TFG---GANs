@@ -1000,7 +1000,7 @@ class Style_Prog_Trainer:
                     step += 1
                 logger.info(" ## Training data for size {} ".format(self.inputShape))
                 elapsed = timeit.default_timer() - start
-                elapsed = str(datetime.timedelta(seconds=elapsed)).split('.')[0]
+                elapsed = str(timedelta(seconds=elapsed)).split('.')[0]
                 logger.info("Time taken for epoch: %s\n" % elapsed)
                 self.num_ep = self.num_ep + 1
 
