@@ -18,3 +18,23 @@ In addition, two new loss functions are introduced. The first one, adversarial l
 ![Complete-Structure](https://user-images.githubusercontent.com/60478676/170842020-ea1f8756-a752-40de-a6b4-1aafca54866e.jpg)
 
 In  this figure it can be seen the complete structure of a CycleGAN that transforms horses into zebras and vice versa. The first generator transforms a horse into a zebra, and then this generated image is passed on to the other generator to make a horse. 
+
+# Code Structure
+
+## Folders
+
+- [PreprocessDatasets](PreprocessDatasets): Contains the preprocess datasets used for training and generating samples
+- [models](models): Contains pre-trained models that can be used for generating samples
+- [CycleTraining](CycleTraining) : Folder in which generated and real images, as well as the loss function grafic will be saved 
+
+
+## Classes
+
+- [CycleDiscriminator.py](CycleDiscriminator.py): Contains the CycleGANs Discriminator class
+- [CycleGenerator.py](CycleGenerator.py): Contains the CycleGANs Generator
+
+
+## Executables
+
+- [generateSamples.py](generateSamples.py): Generates a given number of samples from either a previously trained model that is given, or a new one from scratch without training the models
+- [trainingCycle.py](TrainSimpleGan.py): Trains a model, that is either previously trained or not, for the number of epochs give
