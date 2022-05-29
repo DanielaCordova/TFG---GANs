@@ -9,3 +9,24 @@ The StyleGAN is named after this concept because not only it can generate highly
 To handle styles, StyleGAN's Generator takes a random noise vector and a constant vector as an input. The idea behind having two different inputs is that the constant vector will travel through several convolutional layers and end up as the generated image, whereas the random noise vector is processed by some fully connected layers to generate other that represents the styles that will be applied to the random noise vector at various points during the generation process. The StyleGAN Discriminator, on the other hand, is quite similar to the Conditional GAN Discriminator, but it also applied some changes for it to keep up with the Generator. A whole intuition of the complete architecture is given here:
 
 ![StyleGanScheme](https://user-images.githubusercontent.com/60478676/170843665-e9574380-f6ba-4839-9ec9-2e25d61d94e4.svg)
+
+
+# Code Structure
+
+## Classes
+
+- StyleDiscriminator.py : Contains the StyleGAN Discriminators class and that of the Blocks that it's composed of
+- StyleGenerator.py : Contains the StyleGAN Generator, as well as all its parts
+- TrainingStyleGan.py: Contains the Trainer class that is used for the StyleGAN
+
+
+## Executables
+
+- generateSamples.py : Generates a given number of samples from either a previously trained model that is given, or a new one from scratch without training the models
+- trainingStyle.py : Trains a model, that is either previously trained or not, for the number of epochs given for each step of the progressive growing
+- generateStyleMixing.py : Mixes the styles of two given images and saves them. This is done with a previously trained model. 
+
+
+
+
+
