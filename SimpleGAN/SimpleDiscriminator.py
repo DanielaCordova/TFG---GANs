@@ -15,7 +15,7 @@ class DiscriminadorGAN(nn.Module):
         l
     )
 
-  def generar_bloque_discriminador(self, inChan, outChan, device = 'cuda', kernel = 2, stride = 2, ultimaCapa = False):
+  def generar_bloque_discriminador(self, inChan, outChan, device = 'cuda', kernel = 3, stride = 1, ultimaCapa = False):
     if ultimaCapa :
       return nn.Sequential(
           nn.Conv2d(inChan, outChan, kernel, stride).to(device),

@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import timeit
 from abc import abstractclassmethod
 from venv import create
@@ -20,8 +20,8 @@ import torch.nn.functional as F
 import time
 import copy
 
-from StyleGan.Components import update_average, Losses
-from StyleGan.Components.data import get_data_loader
+# from StyleGan.Components import update_average, Losses
+# from StyleGan.Components.data import get_data_loader
 
 
 
@@ -417,7 +417,7 @@ class Normal_Trainer(GAN_Trainer):
 
     def generate_samples(self, n_samples):
         for i in range(0, n_samples):
-            noise = torch.randn((i, self.generator.getNoiseDim())).to(self.device)
+            noise = torch.randn((Constants.BATCH_SIZE, self.generator.getNoiseDim())).to(self.device)
             samples = self.generator(noise)
             ImageFunctions.tensor_as_image_gray(samples, self.iter, "sample", self.log_dir, save = True, show = False)
         
@@ -1645,7 +1645,6 @@ class Cycle_Trainer():
         step_bins = 20
         x_axis = sorted([i * step_bins for i in range(len(self.gen_loss) // step_bins)] * step_bins)
         num_examples = (len(self.gen_loss) // step_bins) * step_bins
-        print(self.gen_loss)
         plt.plot(
             range(num_examples // step_bins),
             torch.Tensor(self.gen_loss[:num_examples]).view(-1, step_bins).mean(1),

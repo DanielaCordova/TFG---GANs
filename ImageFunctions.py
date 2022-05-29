@@ -90,7 +90,6 @@ def tensor_as_image_gray(img_tensor, iter, tag = None, dir = None, num_images=25
     img_tensor = (img_tensor + 1) / 2
     image_unflat = img_tensor.detach().cpu()
     image_grid = make_grid(image_unflat[:num_images], nrow=nrow)
-    print(image_grid.permute(1,2,0).squeeze().size())
     plt.imshow(image_grid.permute(1,2,0).squeeze())
     
     if save:

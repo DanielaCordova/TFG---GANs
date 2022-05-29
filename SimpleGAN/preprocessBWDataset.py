@@ -18,11 +18,11 @@ classes = ['/8']
 
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Resize(56)
+    transforms.Resize(40)
 ])
 
 dataSets = [ImageFunctions.DataSetCarpetaBlackandWhite(root_path + e, transform, t) for t,e in enumerate(classes)]
 
 ds = torch.utils.data.ConcatDataset(dataSets)
 
-torch.save(ds, 'preprocessedMNIST8(1).pt')
+torch.save(ds, 'preprocessedMNIST8.pt')
