@@ -27,13 +27,13 @@ def load(model, cpk_file):
 if __name__ == '__main__':
 
     loadingPrev = True
-    generator_FILE = "GAN_GEN_2_1.pth"
-    discriminator_FILE = "GAN_DIS_2_1.pth"
-    generatorOptim_FILE = "GAN_GEN_OPTIM_2_1.pth"
-    discriminatorOptim_FILE = "GAN_DIS_OPTIM_2_1.pth"
-    genShadow = "GAN_GEN_SHADOW_2_1.pth"
+    generator_FILE = "GAN_GEN_3_1.pth"
+    discriminator_FILE = "GAN_DIS_3_1.pth"
+    generatorOptim_FILE = "GAN_GEN_OPTIM_3_1.pth"
+    discriminatorOptim_FILE = "GAN_DIS_OPTIM_3_1.pth"
+    genShadow = "GAN_GEN_SHADOW_3_1.pth"
 
-    initialDepth=2
+    initialDepth=3
 
     dataset = make_dataset(resolution=128, ##La resolucion la cargamos como si fuesen imagenes 128x128 para evitar problemas
                            folder=True,

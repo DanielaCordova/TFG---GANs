@@ -19,7 +19,6 @@ from StyleGAN.trainingStyle import load
 curentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(curentdir)
 sys.path.append(parentdir)
-initialDepth=2
 resolution = 128
 out_depth2 = int(np.log2(resolution)) - 2
 
@@ -81,11 +80,13 @@ def main():
     device = "cuda"
     print("Start ...")
     loadingPrev = False
-    generator_FILE = "GAN_GEN_2_1.pth"
-    discriminator_FILE = "GAN_DIS_2_1.pth"
-    generatorOptim_FILE = "GAN_GEN_OPTIM_2_1.pth"
-    discriminatorOptim_FILE = "GAN_DIS_OPTIM_2_1.pth"
-    genShadow = "GAN_GEN_SHADOW_2_1.pth"
+    generator_FILE = "GAN_GEN_2_4.pth"
+    discriminator_FILE = "GAN_DIS_2_4.pth"
+    generatorOptim_FILE = "GAN_GEN_OPTIM_2_4.pth"
+    discriminatorOptim_FILE = "GAN_DIS_OPTIM_2_4.pth"
+    genShadow = "GAN_GEN_SHADOW_2_4.pth"
+    initialDepth = 2
+
     trainer = Training.Style_Prog_Trainer(
         generator=Generator,
         discriminator=StyleDiscriminator.Discriminator,
