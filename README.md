@@ -1,5 +1,7 @@
 # Generation of Content Through Antagonic Generative Networks
 
+The research paper can be found [here](https://docta.ucm.es/entities/publication/d8f9cd1c-699a-4c1d-a637-98a314181244).
+
 There have been major advances in artificial intelligence, particularly machine learning, over the past decade. These breakthroughs have been made mostly because of the increase in processing capacity over time, as anticipated by Moore's law in 1965, which projected that the number of transistors in a given surface would double every year, as illustrated in the next figure. 
 
 ![moores-law](https://user-images.githubusercontent.com/60478676/170839679-8f8ad6e0-e5a8-4c23-8b5a-05617620ffd5.jpg)
